@@ -31,8 +31,8 @@ PLAP requires as input a directory containing untrimmed paired end Fastq files, 
 
 Once the dependencies are installed and working, a typical install and run of PLAP might go as follows:
 
-git clone https://github.com/marade/PLAP.git
-python PLAP/PLAP input-dir ref-dir output-dir
+	git clone https://github.com/marade/PLAP.git
+	python PLAP/PLAP input-dir ref-dir output-dir
 
 A database of alleles for your gene(s), provided in Fasta files located in the "ref-dir" in the command above, is also needed. We have provided our database of fumC and fimH E. coli alleles here.
 
@@ -50,15 +50,15 @@ After installation, create folders for the fastq data and the allele database. M
 PLAP is then ready to run. The command may look as follows:
 
 	./PLAP in_dir db_dir out_dir [parameters]
-	
+
 For a description of all parameters avaliable for modification:
 
 	./PLAP --help
-	
+
 While PLAP runs, it will update you on candidate alleles for eachsample, starting with the coverage evaluation filter (see Detailed Overview). If an allele does not pass a filter, this information will be reported in real time. After PLAP completes, the output directory will contain a results.tab file, which will list the following for all samples and alleles:
 
 	Sample_name	allele_#	prevalence(%)
-	
+
 Note: prevalences are approximate.
 
 PLAP will also issue a warning for samples with overtagmentation i.e. samples where over 50% of reads are under 100bp long. We have found that in such cases your prevalences as recorded in the results.tab file may not be accurately predicted by PLAP and need to be verified manually. See the Detailed Overview for how to do this.
@@ -69,22 +69,14 @@ The nov_out directory within the output directory will contain tab-delimited fil
 
 If you find that PLAP is filtering out all candidate alleles, parameter adjustment is likely necessary. We recommend looking at the rejects file and seeing where the majority of alleles fall out. Parameters that are most likely to need lowering include:
 
-	-y	--spandiff	specifies the max coverage difference for alleles
-					with similar coverage pattern/span 
-					(default 50)
-	-s	--minstartcov	specifies the minimum starting coverage
-					for windowed coverage (default 160)
+	-y	--spandiff	specifies the max coverage difference for alleles with similar coverage pattern/span (default 50)
+	-s	--minstartcov	specifies the minimum starting coverage	for windowed coverage (default 160)
 
 Parameters that may need to be higher include:
 
-	-d	--maxavgdev	specifies the maximum average deviation cutoff 
-					(default 1200)
-	-c	--minalleles	specifies the minimum number of alleles
-					to trigger a second windowed coverage
-					evaluation (default 4)
-	-l	--maxloss	specifies the maximum fraction of coverage 
-					loss for second windowed coverage 
-					(default 0.6)
+	-d	--maxavgdev	specifies the maximum average deviation cutoff (default 1200)
+	-c	--minalleles	specifies the minimum number of alleles to trigger a second windowed coverage evaluation (default 4)
+	-l	--maxloss	specifies the maximum fraction of coverage loss for second windowed coverage (default 0.6)
 
 If you find that PLAP is calling many alleles per gene (>5), reverse  adjustments may be necessary. See Detailed Overview for a short list of controls that would be useful for optimizing parameters for your experiment.
 
@@ -122,7 +114,7 @@ KMA does initial allele calling using k-mer matching between the allele database
 	-p	--penalty	specifies the mismatch penalty (default -2)
 	-o	--openalty	specifies the gap open penalty (default -3)
 	-e	--epenalty	specifies the gap extend penalty (default 20)
-	
+
 ## Coverage evaluation
 
 Many false alleles in the KMA output will appear because they are similar to alleles truly existing in the sample. Some of these false positives will have bases unique to the allele. Coverage of these bases will drop below the error threshold if the allele is a false positive. For the purpose of removing these alleles, we have used Minimap2 to align all reads to each individual candidate allele, the output of which is used to detect bases below the error threshold. Control samples are advised to determine the error threshold for your experiment.
