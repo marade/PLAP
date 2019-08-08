@@ -135,7 +135,7 @@ Further detection of false positives is usually necessary, since not all false p
 	
 	True allele 2 AGAAAAGGGGGCTTTTTTATTTTTTGGGGGAAAAAAATAAAAAAAAA
 	               ^     ^          ^                  ^
-	
+
 To detect these, we must evaluate the coverage of an allele for presence of combinations of distinguishing bases. For this, we use reads that exactly match the allele sequence for a moving window of 10bp (scaled to max read length). We have also used a fraction of the allele length due to high similarity towards the end of fumC and fimH alleles that caused jumps in coverage across all alleles and made discrimination between true and false positives difficult. Control samples are advised to determine if this is an issue for your experiment.
 
 * Output: a tab-delimited file for each allele, that contains start position for each window and coverage at this position.
