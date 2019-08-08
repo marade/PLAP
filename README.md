@@ -206,5 +206,5 @@ If a sample is overtagmented, predicted prevalences for all alleles should be ve
 
 PLAP is currently unpublished, but a manuscript has been submitted, so for now please cite this way:
 
-	Deep sequencing of amplicons for characterization of E. coli clono-biome diversity in fecal and urinary samples
-	Shevchenko, Radey, Tchesnokova, Sokurenko 2018
+	Escherichia coli clonobiome: assessing the strains diversity in feces and urine by deep amplicon sequencing.
+	Shevchenko, Radey, Tchesnokova, Sokurenko 2019
