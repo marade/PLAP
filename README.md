@@ -140,10 +140,10 @@ To detect these, we must evaluate the coverage of an allele for presence of comb
 
 * Output: a tab-delimited file for each allele, that contains start position for each window and coverage at this position.
 
-	-z	--rldiv		specifies the divisor used to determine the reference length minimum (default 2.5)
-	-g	--offset	specifies the position offset to use when doing the windowed coverage evaluation (default 30)
-	-b	--reaffract	specifies the fraction of the reference length, beyond which we do not use values for average deviation (default 0.68)
-	-w	--winlen	specifies the window length to use (default 10)
+		-z	--rldiv		specifies the divisor used to determine the reference length minimum (default 2.5)
+		-g	--offset	specifies the position offset to use when doing the windowed coverage evaluation (default 30)
+		-b	--reaffract	specifies the fraction of the reference length, beyond which we do not use values for average deviation (default 0.68)
+		-w	--winlen	specifies the window length to use (default 10)
 
 ### False positives	
 
