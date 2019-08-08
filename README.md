@@ -98,7 +98,7 @@ Trim Galore does adapter and quality score trimming.
 
 * Output: a *.fq.gz file with “_va_1.fq.gz”/”_val_2.fq.gz” appended to the sample name
 
-	-t	--tgqual	specifies the minimum quality score (default 20)
+		-t	--tgqual	specifies the minimum quality score (default 20)
 	
 ### KMA
 
@@ -106,14 +106,14 @@ KMA does initial allele calling using k-mer matching between the allele database
 
 * Output: KMA database, standard KMA output files per sample including .aln, .fsa, and .res files containing candidate alleles and scores.
 
-	-k 	--klen		specifies the K-mer length for the KMA databases (default 47)
-	-m 	--minphred	specifies the minimum Phred score (default 30)
-	-I 	--identity	specifies the minimum identity (default 99.99)
-	-a	--minascore	specifies the minimum alignment score (default 0.9999)
-	-r	--reward	specifies the reward score for matching	(default 1)
-	-p	--penalty	specifies the mismatch penalty (default -2)
-	-o	--openalty	specifies the gap open penalty (default -3)
-	-e	--epenalty	specifies the gap extend penalty (default 20)
+		-k 	--klen		specifies the K-mer length for the KMA databases (default 47)
+		-m 	--minphred	specifies the minimum Phred score (default 30)
+		-I 	--identity	specifies the minimum identity (default 99.99)
+		-a	--minascore	specifies the minimum alignment score (default 0.9999)
+		-r	--reward	specifies the reward score for matching	(default 1)
+		-p	--penalty	specifies the mismatch penalty (default -2)
+		-o	--openalty	specifies the gap open penalty (default -3)
+		-e	--epenalty	specifies the gap extend penalty (default 20)
 
 ## Coverage evaluation
 
@@ -121,11 +121,11 @@ Many false alleles in the KMA output will appear because they are similar to all
 
 * Output: .fa files of all candidate alleles, a tab-delimited file of coverage per position per base for every allele and sample.
 
-	-q	--slurpqual	specifies the minimum quality score used when slurping Minimap2 BAM coverage data (default 20)
-	-x	--btnm		specifies the number of mismatches a read must have less than for the BAMTools analysis (default 1)
-	--btmp			specifies the map quality each read must exceed for the BAMTools analysis (default 59)
-	--stq			specifies the quality theshold for SAMTools depth calculation (default 30)
-	-f	--freqthresh	specifies the frequency threshold for coverage evaluation (default 0.008)
+		-q	--slurpqual	specifies the minimum quality score used when slurping Minimap2 BAM coverage data (default 20)
+		-x	--btnm		specifies the number of mismatches a read must have less than for the BAMTools analysis (default 1)
+		--btmp			specifies the map quality each read must exceed for the BAMTools analysis (default 59)
+		--stq			specifies the quality theshold for SAMTools depth calculation (default 30)
+		-f	--freqthresh	specifies the frequency threshold for coverage evaluation (default 0.008)
 
 Further detection of false positives is usually necessary, since not all false positives will have unique bases. For example:
 
