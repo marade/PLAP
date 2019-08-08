@@ -13,47 +13,34 @@ with Minimap2 and filter using various thresholds (see below for details).
 
 We ran PLAP using the following software, though other versions may work equally well:
 
-⋅ Red Hat Linux 7.5 or Ubuntu 18.04
-⋅ Python 2.7.5
-⋅ KMA 1.14 [https://bitbucket.org/genomicepidemiology/kma](https://bitbucket.org/genomicepidemiology/kma)
-⋅ Minimap2 2.14 [https://github.com/lh3/minimap2](https://github.com/lh3/minimap2)
-⋅ SAMTools 1.8 [http://www.htslib.org/](http://www.htslib.org/)
-⋅ BioPython 1.72 [https://biopython.org](https://biopython.org)
-⋅ Trim Galore 0.4.5 [https://github.com/FelixKrueger/TrimGalore](https://github.com/FelixKrueger/TrimGalore)
-⋅ Cutadapt 1.18 [https://github.com/marcelm/cutadapt/](https://github.com/marcelm/cutadapt/)
-⋅ PySAM 0.15.1 [https://pysam.readthedocs.io](https://pysam.readthedocs.io)
+* Red Hat Linux 7.5 or Ubuntu 18.04
+* Python 2.7.5
+* KMA 1.14 [https://bitbucket.org/genomicepidemiology/kma](https://bitbucket.org/genomicepidemiology/kma)
+* Minimap2 2.14 [https://github.com/lh3/minimap2](https://github.com/lh3/minimap2)
+* SAMTools 1.8 [http://www.htslib.org/](http://www.htslib.org/)
+* BioPython 1.72 [https://biopython.org](https://biopython.org)
+* Trim Galore 0.4.5 [https://github.com/FelixKrueger/TrimGalore](https://github.com/FelixKrueger/TrimGalore)
+* Cutadapt 1.18 [https://github.com/marcelm/cutadapt/](https://github.com/marcelm/cutadapt/)
+* PySAM 0.15.1 [https://pysam.readthedocs.io](https://pysam.readthedocs.io)
 
-Please be sure all of the above are installed before attempting to run PLAP,
-and additionally check that executable files for the applications are
-available through the current user's path.
+Please be sure all of the above are installed before attempting to run PLAP, and additionally check that executable files for the applications are available through the current user's path.
 
-PLAP requires as input a directory containing untrimmed paired end Fastq
-files, and another directory containing the reference alleles in Fasta
-format. Note: the Fastq files should be named with no underscores
-except the terminal "_1" or "_2", e.g. MyNameHere_1.fastq.gz and
-MyNameHere_2.fastq.gz.
+PLAP requires as input a directory containing untrimmed paired end Fastq files, and another directory containing the reference alleles in Fasta format. Note: the Fastq files should be named with no underscores except the terminal "_1" or "_2", e.g. MyNameHere_1.fastq.gz and MyNameHere_2.fastq.gz.
 
-Installation
+## Installation
 
-Once the dependencies are installed and working, a typical install and
-run of PLAP might go as follows:
+Once the dependencies are installed and working, a typical install and run of PLAP might go as follows:
 
 git clone https://github.com/marade/PLAP.git
 python PLAP/PLAP input-dir ref-dir output-dir
 
-A database of alleles for your gene(s), provided in Fasta files located in
-the "ref-dir" in the command above, is also needed. We have provided our
-database of fumC and fimH E. coli alleles here.
+A database of alleles for your gene(s), provided in Fasta files located in the "ref-dir" in the command above, is also needed. We have provided our database of fumC and fimH E. coli alleles here.
 
-Be warned that PLAP is under active development and testing, and therefore it
-may have serious bugs or otherwise be unsuitable for production work.
+Be warned that PLAP is under active development and testing, and therefore it may have serious bugs or otherwise be unsuitable for production work.
 
-Quick Start
+## Quick Start
 
-After installation, create folders for the fastq data and the 
-allele database. Make sure that your fastq file names are in proper
-format (see above). The allele databse folder should contain
-a .fa or .fasta file(s) formatted in the following way:
+After installation, create folders for the fastq data and the allele database. Make sure that your fastq file names are in proper format (see above). The allele database folder should contain a .fa or .fasta file(s) formatted in the following way:
 
 	>genE_1
 	AAAAAAGGGGGGGTTTTTTTCCCCCCC
@@ -61,42 +48,26 @@ a .fa or .fasta file(s) formatted in the following way:
 	AAAAAAGGGGGGGTTTTTTTCCCGCCC
 
 PLAP is then ready to run. The command may look as follows:
+
 	./PLAP in_dir db_dir out_dir [parameters]
 	
 For a description of all parameters avaliable for modification:
+
 	./PLAP --help
 	
-While PLAP runs, it will update you on candidate alleles for each
-sample, starting with the coverage evaluation filter (see Detailed
-Overview). If an allele does not pass a filter, this information will
-be reported in real time. After PLAP completes, the output directory will
-contain a results.tab file, which will list the following for all samples 
-and alleles:
+While PLAP runs, it will update you on candidate alleles for eachsample, starting with the coverage evaluation filter (see Detailed Overview). If an allele does not pass a filter, this information will be reported in real time. After PLAP completes, the output directory will contain a results.tab file, which will list the following for all samples and alleles:
 
 	Sample_name	allele_#	prevalence(%)
 	
 Note: prevalences are approximate.
 
-PLAP will also issue a warning for samples with overtagmentation i.e.
-samples where over 50% of reads are under 100bp long. We have found
-that in such cases your prevalences as recorded in the results.tab file
-may not be accurately predicted by PLAP and need to be verified manually.
-See the Detailed Overview for how to do this.
+PLAP will also issue a warning for samples with overtagmentation i.e. samples where over 50% of reads are under 100bp long. We have found that in such cases your prevalences as recorded in the results.tab file may not be accurately predicted by PLAP and need to be verified manually. See the Detailed Overview for how to do this.
 
-The rejects.tab file will contain all alleles rejected for your samples and
-the filter at which they were rejected.
+The rejects.tab file will contain all alleles rejected for your samples and the filter at which they were rejected.
 
-The nov_out directory within the output directory will contain tab-delimited
-files for each sample-gene combination. Check these files for uncalled bases
-indicating the presence of novel allele(s) or allele(s) that are present but
-did not survive filtering. Note: if you have uncalled bases for your sample,
-your prevalences as recorded in the results.tab file may not be accurate and
-will need to be recalculated. See the Detailed Overview for further information.
+The nov_out directory within the output directory will contain tab-delimited files for each sample-gene combination. Check these files for uncalled bases indicating the presence of novel allele(s) or allele(s) that are present but did not survive filtering. Note: if you have uncalled bases for your sample, your prevalences as recorded in the results.tab file may not be accurate and will need to be recalculated. See the Detailed Overview for further information.
 
-If you find that PLAP is filtering out all candidate alleles, parameter
-adjustment is likely necessary. We recommend looking at the rejects file
-and seeing where the majority of alleles fall out. Parameters that are
-most likely to need lowering include:
+If you find that PLAP is filtering out all candidate alleles, parameter adjustment is likely necessary. We recommend looking at the rejects file and seeing where the majority of alleles fall out. Parameters that are most likely to need lowering include:
 
 	-y	--spandiff	specifies the max coverage difference for alleles
 					with similar coverage pattern/span 
@@ -105,6 +76,7 @@ most likely to need lowering include:
 					for windowed coverage (default 160)
 
 Parameters that may need to be higher include:
+
 	-d	--maxavgdev	specifies the maximum average deviation cutoff 
 					(default 1200)
 	-c	--minalleles	specifies the minimum number of alleles
@@ -114,42 +86,33 @@ Parameters that may need to be higher include:
 					loss for second windowed coverage 
 					(default 0.6)
 
-If you find that PLAP is calling many alleles per gene (>5), reverse 
-adjustments may be necessary. See Detailed Overview for a short list 
-of controls that would be useful for optimizing parameters for 
-your experiment.
+If you find that PLAP is calling many alleles per gene (>5), reverse  adjustments may be necessary. See Detailed Overview for a short list of controls that would be useful for optimizing parameters for your experiment.
 
-== Detailed Overview ==
+## Detailed Overview
 
 For the best results, we highly recommend the following:
-	A target sequencing read length of at least approximately 250bp
-	A set of control samples consisting of mixes of at least 2 sequence
-		types at various known ratios
-	A set of control natural samples which have been extensively typed 
-		using conventional MLST
 
-Control mixes do not need to be involved in every run, but one per experiment
-is advised.
+* A target sequencing read length of at least approximately 250bp
+* A set of control samples consisting of mixes of at least 2 sequence types at various known ratios
+* A set of control natural samples which have been extensively typed using conventional MLST
 
-Note: PLAP was developed using target read lengths of 250bp. While it may
-work for a >100bp read target with modification, we have not tested its 
-accuracy with this kind of data. Additionally, our defaults are geared
-towards fumC/fimH typing of Escherichia coli. If you have a another MLST-
-like method, or a different organism, significant calibration may be necessary.
+Control mixes do not need to be involved in every run, but one per experiment is advised.
 
-Trim Galore
-	Trim Galore does adapter and quality score trimming.
-	* Output: a *.fq.gz file with “_va_1.fq.gz”/”_val_2.fq.gz” appended to the 
-	sample name
+Note: PLAP was developed using target read lengths of 250bp. While it may work for a >100bp read target with modification, we have not tested its accuracy with this kind of data. Additionally, our defaults are geared towards fumC/fimH typing of Escherichia coli. If you have a another MLST-like method, or a different organism, significant calibration may be necessary.
+
+### Trim Galore
+
+Trim Galore does adapter and quality score trimming.
+
+* Output: a *.fq.gz file with “_va_1.fq.gz”/”_val_2.fq.gz” appended to the sample name
 	
 	-t	--tgqual	specifies the minimum quality score (default 20)
 	
-KMA
-	KMA does initial allele calling using k-mer matching between the allele
-    database and the sample. We include all parameters available to change in
-    KMA for optimization of the process. 
-	Output: KMA database, standard KMA output files per sample including 
-	.aln, .fsa, and .res files containing candidate alleles and scores.
+### KMA
+
+KMA does initial allele calling using k-mer matching between the allele database and the sample. We include all parameters available to change in KMA for optimization of the process. 
+
+* Output: KMA database, standard KMA output files per sample including .aln, .fsa, and .res files containing candidate alleles and scores.
 	
 	-k 	--klen		specifies the K-mer length for the KMA databases
 					(default 47)
@@ -168,17 +131,11 @@ KMA
 	-e	--epenalty	specifies the gap extend penalty
 					(default 20)
 	
-Coverage evaluation
-	Many false alleles in the KMA output will appear because they are  
-	similar to alleles truly existing in the sample. Some of these false 
-	positives will have bases unique to the allele. Coverage of these 
-	bases will drop below the error threshold if the allele is a false 
-	positive. For the purpose of removing these alleles, we have used Minimap2 
-	to align all reads to each individual candidate allele, the output of 
-	which is used to detect bases below the error threshold. Control 
-	samples are advised to determine the error threshold for your experiment.
-	Output: .fa files of all candidate alleles, a tab-delimited file of 
-	coverage per position per base for every allele and sample.
+## Coverage evaluation
+
+Many false alleles in the KMA output will appear because they are similar to alleles truly existing in the sample. Some of these false positives will have bases unique to the allele. Coverage of these bases will drop below the error threshold if the allele is a false positive. For the purpose of removing these alleles, we have used Minimap2 to align all reads to each individual candidate allele, the output of which is used to detect bases below the error threshold. Control samples are advised to determine the error threshold for your experiment.
+
+* Output: .fa files of all candidate alleles, a tab-delimited file of coverage per position per base for every allele and sample.
 	
 	-q	--slurpqual	specifies the minimum quality score used when 
 					slurping Minimap2 BAM coverage data
@@ -194,8 +151,7 @@ Coverage evaluation
 	-f	--freqthresh	specifies the frequency threshold for coverage 
 					evaluation (default 0.008)
 	
-	Further detection of false positives is usually necessary, since not 
-	all false positives will have unique bases. For example:
+Further detection of false positives is usually necessary, since not all false positives will have unique bases. For example:
 	
 	True allele 1 AAAAAAGAGGGCTTTTTTTTTTTTTGGGGGAAAAAAAAAAAAAAAAA
 	
@@ -204,9 +160,7 @@ Coverage evaluation
 	True allele 2 AGAAAAGGGGGCTTTTTTATTTTTTGGGGGAAAAAAATAAAAAAAAA
 	               ^     ^          ^                  ^
 	
-	To detect these, we must evaluate the coverage of an allele for 
-	presence of combinations of distinguishing bases. For this, we 
-	use reads that exactly match the allele sequence for a moving window 
+To detect these, we must evaluate the coverage of an allele for presence of combinations of distinguishing bases. For this, we 	use reads that exactly match the allele sequence for a moving window 
 	of 10bp (scaled to max read length). We have also used a fraction of 
 	the allele length due to high similarity towards the end of fumC and fimH 
 	alleles that caused jumps in coverage across all alleles and made 
