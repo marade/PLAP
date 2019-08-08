@@ -105,7 +105,7 @@ Note: PLAP was developed using target read lengths of 250bp. While it may work f
 Trim Galore does adapter and quality score trimming.
 
 * Output: a *.fq.gz file with “_va_1.fq.gz”/”_val_2.fq.gz” appended to the sample name
-	
+
 	-t	--tgqual	specifies the minimum quality score (default 20)
 	
 ### KMA
@@ -113,46 +113,30 @@ Trim Galore does adapter and quality score trimming.
 KMA does initial allele calling using k-mer matching between the allele database and the sample. We include all parameters available to change in KMA for optimization of the process. 
 
 * Output: KMA database, standard KMA output files per sample including .aln, .fsa, and .res files containing candidate alleles and scores.
-	
-	-k 	--klen		specifies the K-mer length for the KMA databases
-					(default 47)
-	-m 	--minphred	specifies the minimum Phred score
-					(default 30)
-	-I 	--identity	specifies the minimum identity
-					(default 99.99)
-	-a	--minascore	specifies the minimum alignment score
-					(default 0.9999)
-	-r	--reward	specifies the reward score for matching
-					(default 1)
-	-p	--penalty	specifies the mismatch penalty
-					(default -2)
-	-o	--openalty	specifies the gap open penalty
-					(default -3)
-	-e	--epenalty	specifies the gap extend penalty
-					(default 20)
+
+	-k 	--klen		specifies the K-mer length for the KMA databases (default 47)
+	-m 	--minphred	specifies the minimum Phred score (default 30)
+	-I 	--identity	specifies the minimum identity (default 99.99)
+	-a	--minascore	specifies the minimum alignment score (default 0.9999)
+	-r	--reward	specifies the reward score for matching	(default 1)
+	-p	--penalty	specifies the mismatch penalty (default -2)
+	-o	--openalty	specifies the gap open penalty (default -3)
+	-e	--epenalty	specifies the gap extend penalty (default 20)
 	
 ## Coverage evaluation
 
 Many false alleles in the KMA output will appear because they are similar to alleles truly existing in the sample. Some of these false positives will have bases unique to the allele. Coverage of these bases will drop below the error threshold if the allele is a false positive. For the purpose of removing these alleles, we have used Minimap2 to align all reads to each individual candidate allele, the output of which is used to detect bases below the error threshold. Control samples are advised to determine the error threshold for your experiment.
 
 * Output: .fa files of all candidate alleles, a tab-delimited file of coverage per position per base for every allele and sample.
-	
-	-q	--slurpqual	specifies the minimum quality score used when 
-					slurping Minimap2 BAM coverage data
-					(default 20)
-	-x	--btnm		specifies the number of mismatches a read must 
-					have less than for the BAMTools analysis
-					(default 1)
-	--btmp			specifies the map quality each read must 
-					exceed for the BAMTools analysis
-					(default 59)
-	--stq			specifies the quality theshold for SAMTools 
-					depth calculation (default 30)
-	-f	--freqthresh	specifies the frequency threshold for coverage 
-					evaluation (default 0.008)
-	
+
+	-q	--slurpqual	specifies the minimum quality score used when slurping Minimap2 BAM coverage data (default 20)
+	-x	--btnm		specifies the number of mismatches a read must have less than for the BAMTools analysis (default 1)
+	--btmp			specifies the map quality each read must exceed for the BAMTools analysis (default 59)
+	--stq			specifies the quality theshold for SAMTools depth calculation (default 30)
+	-f	--freqthresh	specifies the frequency threshold for coverage evaluation (default 0.008)
+
 Further detection of false positives is usually necessary, since not all false positives will have unique bases. For example:
-	
+
 	True allele 1 AAAAAAGAGGGCTTTTTTTTTTTTTGGGGGAAAAAAAAAAAAAAAAA
 	
 	False allele  AAAAAAGAGGGCTTTTTTATTTTTTGGGGGAAAAAAATAAAAAAAAA
@@ -160,123 +144,61 @@ Further detection of false positives is usually necessary, since not all false p
 	True allele 2 AGAAAAGGGGGCTTTTTTATTTTTTGGGGGAAAAAAATAAAAAAAAA
 	               ^     ^          ^                  ^
 	
-To detect these, we must evaluate the coverage of an allele for presence of combinations of distinguishing bases. For this, we 	use reads that exactly match the allele sequence for a moving window 
-	of 10bp (scaled to max read length). We have also used a fraction of 
-	the allele length due to high similarity towards the end of fumC and fimH 
-	alleles that caused jumps in coverage across all alleles and made 
-	discrimination between true and false positives difficult. Control
-	samples are advised to determine if this is an issue for your experiment. 
-	Output: a tab-delimited file for each allele, that contains start 
-	position for each window and coverage at this position.
-	
-	-z	--rldiv		specifies the divisor used to determine the 
-					reference length minimum (default 2.5)
-	-g	--offset	specifies the position offset to use when 
-					doing the windowed coverage evaluation
-					(default 30)
-	-b	--reaffract	specifies the fraction of the reference length, 
-					beyond which we do not use values for 
-					average deviation (default 0.68)
-	-w	--winlen	specifies the window length to use
-					(default 10)
+To detect these, we must evaluate the coverage of an allele for presence of combinations of distinguishing bases. For this, we use reads that exactly match the allele sequence for a moving window of 10bp (scaled to max read length). We have also used a fraction of the allele length due to high similarity towards the end of fumC and fimH alleles that caused jumps in coverage across all alleles and made discrimination between true and false positives difficult. Control samples are advised to determine if this is an issue for your experiment.
 
-False positives	
-	False positives frequently show the following characteristics:
-	•	Low initial coverage – For fumC especially, the beginning of 
-		the allele can be highly differentiating, so false positives
-		will start out with poor coverage as there are few exact 
-		matches of adequate length. Filtering for this saves time 
-		in later filters.
+* Output: a tab-delimited file for each allele, that contains start position for each window and coverage at this position.
 
-		-s	--minstartcov	specifies the minimum starting coverage 
-						(default 160)
+	-z	--rldiv		specifies the divisor used to determine the reference length minimum (default 2.5)
+	-g	--offset	specifies the position offset to use when doing the windowed coverage evaluation (default 30)
+	-b	--reaffract	specifies the fraction of the reference length, beyond which we do not use values for average deviation (default 0.68)
+	-w	--winlen	specifies the window length to use (default 10)
 
-	•	Volatility of coverage across the allele – for false positives 
-		that are “hybrids” of two or more true alleles of differing 
-		frequency, coverage will sharply increase and/or decrease as 
-		the window moves down the allele. The proxy metric that we 
-		use for measuring this volatility is average deviation from
-		the mean coverage.
+### False positives	
+
+False positives frequently show the following characteristics:
+
+* Low initial coverage – For fumC especially, the beginning of the allele can be highly differentiating, so false positives will start out with poor coverage as there are few exact matches of adequate length. Filtering for this saves time in later filters.
+
+		-s	--minstartcov	specifies the minimum starting coverage (default 160)
+
+* Volatility of coverage across the allele – for false positives that are “hybrids” of two or more true alleles of differing frequency, coverage will sharply increase and/or decrease as the window moves down the allele. The proxy metric that we use for measuring this volatility is average deviation from the mean coverage.
 
 		-d	--maxavgdev	specifies the maximum deviation cutoff
 						(default 1200)
 
-	•	Mirroring of true alleles in coverage – for some false positives, 
-		due to high similarity to a single true allele, the pattern 
-		of coverage across the allele will largely copy the coverage 
-		pattern of the true allele. These can be removed by detecting 
-		the similarity and determining which allele has an overall more 
-		stable coverage pattern. We by default define ‘similarity’ as two 
-		alleles having coverages within 50X of each other for a 
-		span of 20bp or more.
+* Mirroring of true alleles in coverage – for some false positives, due to high similarity to a single true allele, the pattern of coverage across the allele will largely copy the coverage pattern of the true allele. These can be removed by detecting the similarity and determining which allele has an overall more stable coverage pattern. We by default define ‘similarity’ as two alleles having coverages within 50X of each other for a span of 20bp or more.
 
 		-y	--spandiff	specifies the coverage difference (default 50)
 		-j	--spanlen	specifies the length of the span (default 20)
 
-	•	Significant loss of coverage after length adjustment – for 
-		some samples, similarity between false and true alleles may 
-		result in many false positives that survive previous filtering. 
-		In these cases, a second windowed coverage filter may be 
-		necessary. This second filter is more stringent in read length
-		(scaled to max read length) and should produce a lower coverage. 
-		However, since longer reads group more bases together and therefore
-		are more discriminatory, false positives lose significantly more 
-		coverage than true alleles when compared to the first windowed 
-		coverage filter. Note: some alleles (ex. fimH-86) appear to be 
-		more susceptible to tagmentation and may skew towards shorter 
-		reads as a result, causing these alleles to be erroneously 
-		removed. Such alleles may be rescued manually (see below).
+* Significant loss of coverage after length adjustment – for some samples, similarity between false and true alleles may result in many false positives that survive previous filtering. In these cases, a second windowed coverage filter may be necessary. This second filter is more stringent in read length (scaled to max read length) and should produce a lower coverage. However, since longer reads group more bases together and therefore are more discriminatory, false positives lose significantly more coverage than true alleles when compared to the first windowed coverage filter. Note: some alleles (ex. fimH-86) appear to be more susceptible to tagmentation and may skew towards shorter reads as a result, causing these alleles to be erroneously removed. Such alleles may be rescued manually (see below).
 
-		-c	--minalleles	specifies the minimum number of alleles
-						to trigger a second windowed coverage
-						evaluation (default 4)
-		-u	--srldiv	specifies the divisor used to determine 
-						the reference length minimum (default 1.5)
-		-l	--maxloss	specifies the maximum fraction of coverage loss
-						(default 0.6)
+		-c	--minalleles	specifies the minimum number of alleles to trigger a second windowed coverage evaluation (default 4)
+		-u	--srldiv	specifies the divisor used to determine the reference length minimum (default 1.5)
+		-l	--maxloss	specifies the maximum fraction of coverage loss	(default 0.6)
 
-== Novel allele detection ==
-	Once all true alleles have been detected, we can look for potential novel
-	alleles by detecting bases above a certain frequency that are not described 
-	by the set of alleles that survived filtering. Note: some samples may 
-	have alleles that truly exist in the sample but do not survive filtering 
-	due to very low frequency, atypical coverage pattern, selective 
-	overtagmentation, presence alongside a highly similar allele, etc. These 
-	may be ‘revived’ using this detector. Construction of novel alleles and/or 
-	rescue of lost true alleles must be done by aligning alleles detected in the 
-	sample, manually amending sequences to include 'novel' bases, and searching 
-	available allele databases for the created allele(s).
-	If novel or rescued alleles are present, the prevalences called automatically 
-	by PLAP need to be recalculated: determine if there is any overlap in bases
-	between the novel/rescued allele and a successfully called minor allele, then
-	determine the approximate prevalence of the novel/rescued allele by averaging
-	frequency of uncalled bases (use Minimap2 output to calculate frequencies)
-	and subtract this prevalence from the prevalence of the overlapping allele.
-	If no overlapping minor allele is present, subtract this prevalence from 
-	that of the most prevalent allele.
-	Output: a tab-delimited file with every position and base detected 
-	
-	--ucmfreq	specifies the minimum frequency for an uncalled base 
-				to pass the filter (default 0.008)
-	
-	
-== Prevalence calculation ==
-	Allele prevalence is calculated in the following way: 
-	For every allele, coverage at all distinguishing positions is extracted from 
-		the first windowed coverage filter output
-	The minimum of these coverage counts is determined for each allele
-	Total of all minimum coverages for a gene is determined
-	Allele prevalence is expressed as % of this total using the allele's 
-		minimum coverage
+### Novel allele detection
 
-Manual prevalence calculation
-	If a sample is overtagmented, predicted prevalences for all alleles should
-	be verified manually. Do this by finding at least one base unique to each
-	called allele (you can use the MAFFT fodler output to do this) and determining
-	the prevalence of that base in the sample using	the output from Minimap2. If 
-	there is one or more alleles that do not have a unique base, we recommend using
-	the prevalences of several bases to infer allele prevalence similarly to the
-	following:
+Once all true alleles have been detected, we can look for potential novel alleles by detecting bases above a certain frequency that are not described by the set of alleles that survived filtering. Note: some samples may have alleles that truly exist in the sample but do not survive filtering due to very low frequency, atypical coverage pattern, selective overtagmentation, presence alongside a highly similar allele, etc. These may be ‘revived’ using this detector. Construction of novel alleles and/or rescue of lost true alleles must be done by aligning alleles detected in the sample, manually amending sequences to include 'novel' bases, and searching available allele databases for the created allele(s).
+
+If novel or rescued alleles are present, the prevalences called automatically by PLAP need to be recalculated: determine if there is any overlap in bases between the novel/rescued allele and a successfully called minor allele, then determine the approximate prevalence of the novel/rescued allele by averaging frequency of uncalled bases (use Minimap2 output to calculate frequencies) and subtract this prevalence from the prevalence of the overlapping allele. If no overlapping minor allele is present, subtract this prevalence from that of the most prevalent allele.
+
+* Output: a tab-delimited file with every position and base detected 
+
+		--ucmfreq	specifies the minimum frequency for an uncalled base to pass the filter (default 0.008)
+	
+### Prevalence calculation
+
+Allele prevalence is calculated in the following way: 
+
+* For every allele, coverage at all distinguishing positions is extracted from the first windowed coverage filter output
+* The minimum of these coverage counts is determined for each allele
+* Total of all minimum coverages for a gene is determined
+* Allele prevalence is expressed as % of this total using the allele's minimum coverage
+
+#### Manual prevalence calculation
+
+If a sample is overtagmented, predicted prevalences for all alleles should be verified manually. Do this by finding at least one base unique to each called allele (you can use the MAFFT fodler output to do this) and determining the prevalence of that base in the sample using the output from Minimap2. If there is one or more alleles that do not have a unique base, we recommend using the prevalences of several bases to infer allele prevalence similarly to the following:
 	
 	Allele(s)  position     base      prevalence
 	  1 & 3       51          A            80%
@@ -287,14 +209,10 @@ Manual prevalence calculation
 	Allele 1	75%
 	Allele 2	20%
 	Allele 3	 5%
-	            
-	
-	
-== Citations ==
 
-PLAP is currently unpublished, but we are submitting a paper soon, so
-for now please cite this way:
+### Citations
 
-Deep sequencing of amplicons for characterization of E. coli clono-biome
-diversity in fecal and urinary samples
-Shevchenko, Radey, Tchesnokova, Sokurenko 2018
+PLAP is currently unpublished, but a manuscript has been submitted, so for now please cite this way:
+
+	Deep sequencing of amplicons for characterization of E. coli clono-biome diversity in fecal and urinary samples
+	Shevchenko, Radey, Tchesnokova, Sokurenko 2018
