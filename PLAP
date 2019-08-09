@@ -1,0 +1,1109 @@
+#!/usr/bin/env python
+# vim: set fileencoding=utf8 :
+#
+# authors: M Radey (marad_at_uw.edu) and S Shevchenko (shevcs_at_uw.edu)
+#
+# If you use this code, please cite the following publication:
+# Deep sequencing of amplicons for characterization of E. coli
+# clono-biome diversity in fecal and urinary samples (2019)
+# Shevchenko S, Radey M, Tchesnokova V, Sokurenko E
+#
+# This script tested with the following software versions:
+#
+# Red Hat Linux 7.5, Python 2.7.5, Minimap2 2.14, SAMTools 1.8,
+# BAMTools 2.4.1, KMA 1.14, BioPython 1.72, Trim Galore! 0.4.5,
+# Cutadapt 1.18, PySAM 0.15.1, natsort 5.5.0
+
+import os, sys, argparse, glob, re, pysam
+from shutil import copyfile
+from itertools import combinations
+from multiprocessing import cpu_count
+from subprocess import call, Popen, PIPE
+import numpy as np
+from natsort import natsorted
+from Bio import SeqIO, AlignIO
+
+def which(name):
+    paths = os.getenv("PATH").split(os.path.pathsep)
+    for path in paths:
+        full_path = path + os.sep + name
+        if os.path.exists(full_path):
+            return(full_path)
+    return 0
+
+version     = "1.0.0"
+trimg       = which("trim_galore")
+kma         = which("kma")
+kmai        = which("kma_index")
+mm2         = which("minimap2")
+samtools    = which("samtools")
+mafft       = which("mafft")
+bamtools    = which("bamtools")
+cores       = cpu_count()
+halfcores   = cores / 2
+hcoresp     = halfcores + 1
+tdefault    = 20
+kdefault    = 47
+mdefault    = 30
+idefault    = 99.99
+adefault    = 0.9999
+rdefault    = 1
+pdefault    = -2
+odefault    = -3
+edefault    = -1
+qdefault    = 20
+wcovdefault = 5
+fdefault    = 0.008
+ddefault    = 1200
+ldefault    = 0.6
+madefault   = 4
+wdefault    = 10
+sdefault    = 160
+frdefault   = 0.68
+rldefault   = 2.5
+osdefault   = 30
+sddefault   = 50
+sldefault   = 20
+srldefault  = 1.25
+nmdefault   = 1
+mpdefault   = 59
+sqdefault   = 30
+ucdefault   = 0.008
+
+def do_args():
+    desc = "PLAP, the Population-Level Allele Profiler, is a tool for " +\
+        "characterizing population allele presence in genomic loci " +\
+        "experiments like MLST"
+    parser = argparse.ArgumentParser(prog=os.path.basename(__file__),\
+        version=version, description=desc)
+    parser.add_argument("indir", help="specifies the directory with the " +\
+        "input Fastq files that have names like X_1.fastq and X_2.fastq " +\
+        "or the gzipped equivalents")
+    parser.add_argument("dbdir", help="specifies the directory where the " +\
+        "nucleotide Fasta files with the database (subject) sequences to " +\
+        "be searched against are")
+    parser.add_argument("outdir", help="specifies the output directory")
+    parser.add_argument("-n", "--threads", type=int, default=cores,\
+        help="specifies the maximum number of threads to use. " +\
+        "The default is %(default)s.")
+    parser.add_argument("-t", "--tgqual", type=int, default=tdefault,\
+        help="specifies the minimum quality score for Trim Galore. The " +\
+        "default is %(default)s.")
+    parser.add_argument("-k", "--klen", type=int, default=kdefault,\
+        help="specifies the K-mer length for the KMA databases. The " +\
+        "default is %(default)s.")
+    parser.add_argument("-m", "--minphred", type=int, default=mdefault,\
+        help="specifies the minimum Phred score for KMA. The " +\
+        "default is %(default)s.")
+    parser.add_argument("-i", "--identity", type=float, default=idefault,\
+        help="specifies the minimum identity in percent for KMA. The " +\
+        "default is %(default)s.")
+    parser.add_argument("-a", "--minascore", type=float, default=adefault,\
+        help="specifies the minimum alignment score for KMA. The " +\
+        "default is %(default)s.")
+    parser.add_argument("-r", "--reward", type=int, default=rdefault,\
+        help="specifies the reward score for KMA. The " +\
+        "default is %(default)s.")
+    parser.add_argument("-p", "--penalty", type=int, default=pdefault,\
+        help="specifies the mismatch penalty for KMA. The " +\
+        "default is %(default)s.")
+    parser.add_argument("-o", "--openalty", type=int, default=odefault,\
+        help="specifies the gap open penalty for KMA. The " +\
+        "default is %(default)s.")
+    parser.add_argument("-e", "--epenalty", type=int, default=edefault,\
+        help="specifies the gap extend penalty for KMA. The " +\
+        "default is %(default)s.")
+    parser.add_argument("-q", "--slurpqual", type=int, default=qdefault,\
+        help="specifies the minimum quality score used when slurping " +\
+        "Minimap2 BAM coverage data. The default is %(default)s.")
+    parser.add_argument("-f", "--freqthresh", type=float, default=fdefault,\
+        help="specifies the frequency threshold for coverage evaluation." +\
+        " The default is %(default)s.")
+    parser.add_argument("--wcovthresh", type=int, default=wcovdefault,\
+        help="specifies the coverage threshold for windowed coverage " +\
+        "evaluations, where alleles that fall below this threshold " +\
+        "in any window will be removed. The default is %(default)s.")
+    parser.add_argument("-d", "--maxavgdev", type=int, default=ddefault,\
+        help="specifies the maximum deviation for coverage when evaluating " +\
+        "alleles. The default is %(default)s.")
+    parser.add_argument("-l", "--maxloss", type=float, default=ldefault,\
+        help="specifies the maximum fraction of coverage loss for the " +\
+        "coverage evaluation. The default is %(default)s.")
+    parser.add_argument("-c", "--minalleles", type=int, default=madefault,\
+        help="specifies the minimum number of alleles to trigger a " +\
+        "second windowed coverage evaluation. The default is %(default)s.")
+    parser.add_argument("-s", "--minstartcov", type=int, default=sdefault,\
+        help="specifies the minimum starting coverage when evaluating " +\
+        "alleles. The default is %(default)s.")
+    parser.add_argument("-b", "--reffract", type=float, default=frdefault,\
+        help="specifies the fraction of the reference length, beyond " +\
+        "which we do not use values for average deviation for the " +\
+        "windowed coverage evaluation. The default is %(default)s.")
+    parser.add_argument("-z", "--rldiv", type=float, default=rldefault,\
+        help="specifies the divisor used to determine the reference " +\
+        "length minimum for the windowed coverage evaluation. The " +\
+        "default is %(default)s.")
+    parser.add_argument("-g", "--offset", type=int, default=osdefault,\
+        help="specifies the position offset to use when doing the " +\
+        "windowed coverage evaluation. The default is %(default)s.")
+    parser.add_argument("-w", "--winlen", type=int, default=wdefault,\
+        help="specifies the window length to use when doing the " +\
+        "windowed coverage evaluation. The default is %(default)s.")
+    parser.add_argument("-y", "--spandiff", type=int, default=sddefault,\
+        help="specifies the coverage difference to use when doing the " +\
+        "similar span evaluation. The default is %(default)s.")
+    parser.add_argument("-j", "--spanlen", type=int, default=sldefault,\
+        help="specifies the length to use when doing the similar span " +\
+        "evaluation. The default is %(default)s.")
+    parser.add_argument("-u", "--srldiv", type=float, default=srldefault,\
+        help="specifies the divisor used to determine the reference " +\
+        "length minimum for the second windowed coverage evaluation. The " +\
+        "default is %(default)s.")
+    parser.add_argument("-x", "--btnm", type=int, default=nmdefault,\
+        help="specifies the number of mismatches a read must have " +\
+        "less than for the BAMTools analysis. The default is %(default)s.")
+    parser.add_argument("--btmp", type=int, default=mpdefault,\
+        help="specifies the map quality each read must exceed for the " +\
+        "BAMTools analysis. The default is %(default)s.")
+    parser.add_argument("--stq", type=int, default=sqdefault,\
+        help="specifies the quality theshold for SAMTools depth " +\
+        "calculation for the BAMTools analysis. The default is %(default)s.")
+    parser.add_argument("--ucmfreq", type=float, default=ucdefault,\
+        help="specifies the minimum frequency for an uncalled base to " +\
+        "pass the filter. The default is %(default)s.")
+    return parser.parse_args()
+
+def make_dirs(outdir):
+    # create output directory structure
+    tin = outdir + "/trimmed-in"
+    kmadb = outdir + "/kma-db"
+    kmaout = outdir + "/kma-out"
+    mmout = outdir + "/minimap2-out"
+    mafftout = outdir + "/mafft-out"
+    bout = outdir + "/bamtools-out"
+    nout = outdir + "/novel-out"
+    dout = outdir + "/done"
+    if not os.path.isdir(outdir): os.mkdir(outdir)
+    if not os.path.isdir(tin): os.mkdir(tin)
+    if not os.path.isdir(kmadb): os.mkdir(kmadb)
+    if not os.path.isdir(kmaout): os.mkdir(kmaout)
+    if not os.path.isdir(mmout): os.mkdir(mmout)
+    if not os.path.isdir(mafftout): os.mkdir(mafftout)
+    if not os.path.isdir(bout): os.mkdir(bout)
+    if not os.path.isdir(nout): os.mkdir(nout)
+    if not os.path.isdir(dout): os.mkdir(dout)
+    return tin, kmadb, kmaout, mmout, mafftout, bout, nout, dout
+
+def print_dict_of_lists(thedict):
+    for key in thedict.keys():
+        print("  " + key + ":")
+        print "   ",
+        for val in thedict[key]:
+            print val,
+        print
+
+def trim_input(indir, tin, tgqual):
+    firstfq = glob.glob(indir + "/*_1.fastq*")
+    # for each pair of Fastq files...
+    for fq1 in firstfq:
+        fq2 = re.sub("_1.fastq", "_2.fastq", fq1)
+        fname = os.path.basename("_".join(fq1.split("_")[:-1]))
+        fq1out = tin + "/" + fname + "_1_val_1.fq.gz"
+        fq2out = tin + "/" + fname + "_2_val_2.fq.gz"
+        fqout = tin + "/" + fname + "_1_trimmed.fq.gz"
+        print("Removing adapter seqs and trimming " + fname + "...")
+        if (os.path.exists(fq1out) and os.path.exists(fq2out)) or \
+            os.path.exists(fqout):
+            print("Skipping trimming because some files already exist: " +\
+                fq1out + " " + fq2out + " " + fqout)
+        elif os.path.exists(fq1) and not os.path.exists(fq2):
+            # run Trim Galore
+            args1 = [trimg, '-q', str(tgqual), '--gzip', '--output', tin, fq1]
+            FNULL = open(os.devnull, 'w')
+            call(args1, stderr=FNULL, stdout=FNULL, shell=False)
+            FNULL.close()
+        else:
+            # run Trim Galore
+            args1 = [trimg, '-q', str(tgqual), '--gzip', '--output', tin,\
+                '--paired', fq1, fq2]
+            FNULL = open(os.devnull, 'w')
+            call(args1, stderr=FNULL, stdout=FNULL, shell=False)
+            FNULL.close()
+
+def make_ref_db(dbdir, kmadb, klen):
+    print("Making KMA template database...")
+    allfa = kmadb + "/all-templates.fa"
+    if os.path.exists(allfa):
+        print("Skipping database creation because file already exists: " +\
+            allfa)
+    else:
+        dbname = kmadb + "/all-templates" + str(klen)
+        dbfas = glob.glob(dbdir + "/*.fa*")
+        with open(allfa, 'w') as o:
+            for dbfa in dbfas:
+                with open(dbfa) as n:
+                    for line in n: o.write(line)
+        # make KMA database
+        args1= [kmai, '-k', str(klen), '-k_t', str(klen), '-k_i',\
+            str(klen), '-i', allfa, '-o', dbname]
+        FNULL = open(os.devnull, 'w')
+        call(args1, stderr=FNULL, shell=False)
+        #call(args1, shell=False)
+        FNULL.close()
+
+def kma_seqs(tin, kmadb, kmaout, klen, minphred, ident, minascore, reward,\
+    penalty, openalty, epenalty):
+    # run KMA on each sample
+    firstfq = glob.glob(tin + "/*_val_1.fq*")
+    if len(firstfq) < 1:
+        firstfq = glob.glob(tin + "/*_1_trimmed.fq*")
+    # for each pair of trimmed Fastq files...
+    for fq1 in firstfq:
+        fq2 = re.sub("_1_val_1", "_2_val_2", fq1)
+        fname, ext = os.path.splitext(os.path.basename(fq1))
+        fname = fname.split('_')[0]
+        outpre = kmaout + "/" + fname
+        res = outpre + ".res"
+        dbname = kmadb + "/all-templates" + str(klen)
+        print("Running KMA for: " + fname)
+        if os.path.exists(res):
+            print("Skipping KMA run because file already exists: " + res)
+        elif fq1 == fq2:
+            # run KMA
+            args1 = [kma, '-ex_mode', '-matrix', '-1t1', '-t', str(cores),\
+                '-apm', 'u', '-mp', str(minphred), '-ID', str(ident),\
+                '-mrs', str(minascore), '-reward', str(reward), '-penalty',\
+                str(penalty), '-gapopen', str(openalty), '-gapextend',\
+                str(epenalty), '-i', fq1, '-o', outpre, '-t_db', dbname]
+            FNULL = open(os.devnull, 'w')
+            call(args1, stderr=FNULL, shell=False)
+            #call(args1, shell=False)
+            FNULL.close()
+        else:
+            # run KMA
+            args1 = [kma, '-ex_mode', '-matrix', '-1t1', '-t', str(cores),\
+                '-apm', 'u', '-mp', str(minphred), '-ID', str(ident),\
+                '-mrs', str(minascore), '-reward', str(reward), '-penalty',\
+                str(penalty), '-gapopen', str(openalty), '-gapextend',\
+                str(epenalty), '-ipe', fq1, fq2, '-o', outpre,\
+                '-t_db', dbname]
+            FNULL = open(os.devnull, 'w')
+            call(args1, stderr=FNULL, shell=False)
+            #call(args1, shell=False)
+            FNULL.close()
+
+def make_refs(kres, fname, mm2out, allfasta):
+    # make reference files for each allele that KMA identified, to be
+    # used by Minimap2
+    alleles = []
+    with open(kres) as n:
+        for line in n:
+            if line.startswith('#'): continue
+            line = line.rstrip()
+            alleles.append(line.split('\t')[0].rstrip())
+    for allele in alleles:
+        ofile = mm2out + "/" + allele + ".fa"
+        if not os.path.exists(ofile):
+            for rec in SeqIO.parse(allfasta, "fasta"):
+                if rec.id == allele:
+                    SeqIO.write([rec], ofile, "fasta")
+        else:
+            print("Skipping reference file creation because file already " +\
+                "exists: " + ofile)
+    return alleles
+
+def slurp_bam(bamfile, allele, reffile, slurpqual):
+    # dump coverage data from a BAM file
+    bamdata = []
+    pybam = pysam.AlignmentFile(bamfile, "rb")
+    begin = 0
+    records = SeqIO.index(reffile, "fasta")
+    rseq = str(records[allele].seq)
+    for allname, length in zip(pybam.references, pybam.lengths):
+        if not allname == allele: continue
+        stop = length
+        A_Array, C_Array, G_Array, T_Array = pybam.count_coverage(allele,\
+            start=begin, end=stop, read_callback='all',\
+            quality_threshold=slurpqual)
+        for idx in range(begin+1, stop+1): 
+            idx = idx - begin - 1
+            cov = A_Array[idx] + C_Array[idx] + G_Array[idx] + T_Array[idx]
+            bamdata.append([idx+begin+1, rseq[idx], cov, A_Array[idx],\
+                C_Array[idx], G_Array[idx], T_Array[idx]])
+    pybam.close()
+    return bamdata
+
+def slurp_ccounts(cfile):
+    # read a previously created BAM coverage dump
+    cdata = []
+    with open(cfile) as n:
+        for line in n:
+            cdata.append(line.rstrip().split('\t'))
+    return cdata
+
+def get_read_length(bamfile, rep):
+    # get the read length by surveying the first million reads (or
+    # all reads if there are less than a million)
+    # and tell you if your sample has too many short reads
+    pybam = pysam.AlignmentFile(bamfile, "rb")
+    rlen = 0
+    myshort = 0.0
+    mylong = 0.0
+    for anum, aread in enumerate(pybam.fetch(rep)):
+        rl = aread.infer_read_length()
+        if rl > rlen: rlen = rl
+        if rl < 100:
+            myshort += 1
+        else:
+            mylong += 1
+        if anum > 1000000: break
+    if not myshort == 0.0 and mylong == 0.0:
+        tagratio = myshort / (myshort + mylong)
+        if tagratio > 0.5:
+            alertfile = bamfile.split('/')[-1]
+            alertbase = alertfile.split('_')[0]
+            alertloc = bamfile.rsplit('/', 2)[0]
+            alert = alertloc + "/" + alertbase + "_alert.txt"
+            with open(alert, 'w') as o:
+                o.write("This sample is composed of over 50% short reads. " +\
+                    "Prevalence calculations may not be accurate.")
+    return rlen
+
+def write_counts(cfile, cdata):
+    # write a BAM coverage dump
+    with open(cfile, 'w') as o:
+        for fields in cdata: o.write("\t".join(map(str, fields)) + "\n")
+
+def align_sample(fname, trin, alleles, mm2out, bto, squal, step):
+    # align sample trimmed reads to alleles with Minimap2
+    fq1 = trin + "/" + fname + "_1_val_1.fq.gz"
+    fq2 = trin + "/" + fname + "_2_val_2.fq.gz"
+    fq = trin + "/" + fname + "_1_trimmed.fq.gz"
+    allbdata = {}
+    allrldata = {}
+    # for each allele for this sample...
+    for allele in alleles:
+        # set file paths for alignment
+        refpath = mm2out + "/" + allele + ".fa"
+        sbam = mm2out + "/" + fname + "_v_" + allele + ".sorted.bam"
+        sbai = sbam + ".bai"
+        bofile = bto + "/" + fname + "_v_" + allele + ".wincov.tab"
+        bo2file = bto + "/" + fname + "_v_" + allele + ".wincov2.tab"
+        covcounts = mm2out + "/" + fname + "_v_" + allele + ".ccounts.tab"
+        # only do an alignment if we don't already have the data
+        # we need from it
+        if (step == "counts" and os.path.exists(covcounts)) or (step ==\
+            "wincov" and os.path.exists(bofile)) or (step == "wincov2" and\
+            os.path.exists(bo2file)):
+            print("Skipping alignment because enough files already exist: " +\
+                covcounts + " " + bofile + " " + bo2file)
+            thisbdata = slurp_ccounts(covcounts)
+            if os.path.exists(sbam):
+                print sbam
+                allrldata[allele] = get_read_length(sbam, allele)
+            else:
+                allrldata[allele] = 0
+            #print("Read length: " + str(allrldata[allele]))
+        else:
+            # run Minimap2
+            print("Aligning " + fname + " to " + allele + "...")
+            args1 = []
+            if os.path.exists(fq):
+                args1 = [mm2, '-x', 'sr', '-a', '-t', str(hcoresp),\
+                    refpath, fq]
+            else:
+                args1 = [mm2, '-x', 'sr', '-a', '-t', str(hcoresp),\
+                    refpath, fq1, fq2]
+            args2 = [samtools, "sort", "-@", str(halfcores), "-O", "bam",\
+                "-o", sbam, "-"]
+            FNULL = open(os.devnull, 'w')
+            mmapout = Popen(args1, stdout=PIPE, stderr=FNULL, shell=False)
+            #mmapout = Popen(args1, stdout=PIPE, shell=False)
+            call(args2, stdin=mmapout.stdout, stderr=FNULL, shell=False)
+            FNULL.close()
+            #print("Indexing BAM...")
+            args1 = [samtools, "index", sbam]
+            call(args1, shell=False)
+            thisbdata = slurp_bam(sbam, allele, refpath, squal)
+            allrldata[allele] = get_read_length(sbam, allele)
+            write_counts(covcounts, thisbdata)
+        allbdata[allele] = thisbdata
+    return allbdata, allrldata
+
+def eval_covs(bamdata, threshold):
+    # derive allele frequencies based on coverage, and
+    # reject alleles that do not meet the base frequency threshold
+    rejects = []
+    for idx, seq, cov, Acov, Ccov, Gcov, Tcov in bamdata:
+        if seq == "A":
+            if float(cov) > 0: Afreq = float(Acov) / float(cov)
+            else: Afreq = 0.0
+            #print(idx, seq, Afreq)
+            if Afreq < threshold:
+                rejects.append([idx, seq, Afreq])
+        elif seq == "C":
+            if float(cov) > 0: Cfreq = float(Ccov) / float(cov)
+            else: Cfreq = 0.0
+            #print(idx, seq, Cfreq)
+            if Cfreq < threshold:
+                rejects.append([idx, seq, Cfreq])
+        elif seq == "G":
+            if float(cov) > 0: Gfreq = float(Gcov) / float(cov)
+            else: Gfreq = 0.0
+            #print(idx, seq, Gfreq)
+            if Gfreq < threshold:
+                rejects.append([idx, seq, Gfreq])
+        elif seq == "T":
+            if float(cov) > 0: Tfreq = float(Tcov) / float(cov)
+            else: Tfreq = 0.0
+            #print(idx, seq, Tfreq)
+            if Tfreq < threshold:
+                rejects.append([idx, seq, Tfreq])
+        else:
+            print("ERROR: Bad seq value: " + seq)
+            sys.exit()
+    return rejects
+
+def run_bamtools(minreadlen, thisallele, frompos, topos, bamfile, nm, mq, sq):
+    # do a BAMTools filter -> SAMTools depth run and return the output
+    #args1 = [bamtools, 'filter', '-isPrimaryAlignment', 'true',\
+    #    '-isProperPair', 'true', '-isMateMapped', 'true', '-tag',\
+    args1 = [bamtools, 'filter', '-isPrimaryAlignment', 'true',\
+        '-tag', 'NM:<' + str(nm), '-mapQuality', '>' + str(mq), '-length',\
+        '>=' + minreadlen, '-region', thisallele + ":" + str(frompos) +\
+        ".." + str(topos), '-in', bamfile]
+    args2 = [samtools, 'depth', '-a', '-q', str(sq), '/dev/stdin']
+    btout = Popen(args1, stdout=PIPE, shell=False)
+    stout = Popen(args2, stdin=btout.stdout, stdout=PIPE, shell=False)
+    results = stout.communicate()[0]
+    return results
+
+def avg_dev(thislist):
+    # calculate the mean deviation for a list
+    if not len(thislist) == 0:
+        average = np.mean(thislist)
+    else: average = 0.0
+    sum_of_dev = 0
+    adev = 0
+    for item in thislist:
+        sum_of_dev += abs((average - item))
+    if len(thislist) > 0:
+        adev = sum_of_dev / len(thislist)
+    else: adev = 0
+    return adev
+
+def slurp_wccounts(myallele, ofile, minsc, fraction, wthr):
+    # read the windowed coverage values from a file instead of an
+    # alignment, and use the same filters we use with an alignment
+    thevals = {}
+    offset = 0
+    rval = 0
+    keepme = ""
+    with open(ofile) as n:
+        for line in n:
+            pos, val = line.rstrip().split('\t')
+            thevals[pos] = int(val)
+            if offset == 0: offset = int(pos)
+    thisreflen = len(thevals) + (offset * 2)
+    myadlen = int(float(thisreflen) * fraction)
+    if thevals[str(offset)] < minsc and keepme == "":
+        print("Rejecting allele due to insufficient initial coverage: " +\
+            myallele + " " + str(thevals[str(offset)]))
+        rval = thevals[str(offset)]
+        keepme = "IntCov"
+    avedevvals = []
+    for pos in thevals.keys():
+        if int(pos) <= myadlen:
+            if int(thevals[pos]) < wthr and keepme == "":
+                print("Rejecting allele due to insufficient coverage: " +\
+                    myallele + " " + str(pos) + ":" + str(thevals[pos]))
+                keepme = "WCThresh"
+                rval = thevals[pos]
+            avedevvals.append(thevals[pos])
+    return avedevvals, thevals, keepme, rval
+
+def win_cov_eval(accept, afa, off, fname, mmo, bo, fract, rld, wlen, BTnm,\
+    BTmp, STq, msc, mxad, rls, rdict, slq, trin, wct):
+    # do a windowed coverage evaluation for loci
+    records = SeqIO.index(afa, "fasta")
+    subaccept = {}
+    btdres = {}
+    #spos = off
+    #epos = 0
+    spos = {}
+    epos = {}
+    alltbam = {}
+    # for each locus...
+    for abase in accept.keys():
+        subaccept[abase] = []
+        spos[abase] = off
+        epos[abase] = 0
+        # for each remaining locus allele...
+        for allele in accept[abase]:
+            keepthis = True
+            bfile = mmo + "/" + fname + "_v_" + allele +\
+                ".sorted.bam"
+            bofile = bo + "/" + fname + "_v_" + allele +\
+                ".wincov.tab"
+            if os.path.exists(bofile):
+                print("Slurping windowed coverage because file already " +\
+                    "exists: " + bofile)
+                advals, btvals, keepthis, ic = slurp_wccounts(allele, bofile,\
+                    msc, fract, wct)
+                btdres[allele] = btvals
+                last = natsorted(btvals.keys())[-1]
+                epos[abase] = len(str(records[allele].seq)) - off
+                #print epos[abase], len(str(records[allele].seq)), off
+                #epos = int(last)
+                if not keepthis == "":
+                    rdict[allele] = ":".join([keepthis,\
+                        str('{0:.6f}'.format(ic))])
+                    keepthis = False
+                else: keepthis = True
+            else:
+                tbamdata, treadlengths = align_sample(fname, trin, [allele],\
+                    mmo, bo, slq, "wincov")
+                alltbam.update(tbamdata)
+                print("Doing windowed coverage evaluation for: " +\
+                    fname + " " + allele)
+                pybam = pysam.AlignmentFile(bfile, "rb")
+                reflen = pybam.lengths[0]
+                adlen = int(float(reflen) * fract)
+                #print(adlen)
+                rlmin = str(int(float(rls[allele]) / rld))
+                #print("Minimum read length:", rlmin)
+                # establish the windowing range
+                epos[abase] = reflen - off
+                #print epos[abase], reflen, off
+                pos = spos[abase]
+                btdres[allele] = {}
+                advals = []
+                firstwin = True
+                # do the windowed coverage evaluation
+                while pos < epos[abase]:
+                    tpos = pos + wlen
+                    # run BAMTools for this window
+                    res = run_bamtools(rlmin, allele, pos, tpos, bfile,\
+                        BTnm, BTmp, STq)
+                    if res == None: continue
+                    lines = res.split('\n')
+                    lkeep = []
+                    for line in lines[:-1]:
+                        fields = line.split('\t')
+                        # if the result isn't in the window, ignore it
+                        if int(fields[1]) >= tpos or\
+                            int(fields[1]) < pos: continue
+                        else:
+                            # if it's the first window, do the initial
+                            # coverage check
+                            if firstwin == True:
+                                firstwin = False
+                                if int(fields[2]) < msc and keepthis == True:
+                                    print("Rejecting allele due to " +\
+                                        "insufficient initial coverage: " +\
+                                        allele + " " + fields[2])
+                                    keepthis = False
+                                    rdict[allele] =\
+                                        ":".join(["IntCov", str(fields[2])])
+                            # if the position is within the part of the locus
+                            # we use for the average deviation test, check
+                            # to be sure it doesn't go below the coverage
+                            # threshold and retain the coverage
+                            if int(fields[1]) <= adlen:
+                                if int(fields[2]) < wct and keepthis == True:
+                                    print("Rejecting allele due to " +\
+                                        "insufficient coverage: " +\
+                                        allele + " " + fields[2])
+                                    keepthis = False
+                                    rdict[allele] =\
+                                        ":".join(["WCThresh", str(fields[2])])
+                                advals.append(int(fields[2]))
+                            btdres[allele][fields[1]] = fields[2]
+                    # advance the window
+                    pos += wlen
+                # write windowed coverage results
+                with open(bofile, 'w') as o:
+                    for mypos in natsorted(btdres[allele].keys()):
+                        o.write("\t".join([mypos, btdres[allele][mypos]]) +\
+                            "\n")
+            # evaluate average deviation
+            ad = avg_dev(advals)
+            if ad > mxad:
+                print("Rejecting allele due to average deviation too " +\
+                    "high: " + allele + " " + str(ad))
+                keepthis = False
+                rdict[allele] = ":".join(["AvgDev",\
+                    str('{0:.6f}'.format(ad))])
+            if keepthis == True: subaccept[abase].append(allele)
+    return subaccept, btdres, spos, epos, records, rdict, alltbam
+
+def sim_span_eval(subaccept, btdres, spos, epos, sdiff, slen, fname, rdict):
+    # evaluate loci for spans of similar coverage
+    newaccept = {}
+    # for each locus...
+    for abase in subaccept.keys():
+        # if we have more than one allele remaining for the locus...
+        if len(subaccept[abase]) > 1:
+            rejalleles = []
+            # for each combination of two alleles among the alleles
+            # remaining for the locus...
+            for a1, a2 in combinations(subaccept[abase], 2):
+                stretchlen = 0
+                rejcheck = False
+                a1vals = []
+                a2vals = []
+                # for each position in the windowing range...
+                for apos in range(spos[abase], epos[abase]+1):
+                    apos = str(apos)
+                    if not apos in btdres[a1] or not apos in btdres[a2]:
+                        continue
+                    a1vals.append(int(btdres[a1][apos]))
+                    a2vals.append(int(btdres[a2][apos]))
+                    # if the difference exceeds the maximum,
+                    # reset the span count
+                    if abs(int(btdres[a1][apos]) -\
+                        int(btdres[a2][apos])) > sdiff:
+                        stretchlen = 0
+                    else:
+                        stretchlen += 1
+                        # if the span exceeded the maximum length,
+                        # reject it
+                        if stretchlen >= slen:
+                            rejcheck = True
+                if rejcheck == True:
+                    if avg_dev(a1vals) < avg_dev(a2vals):
+                        print("Rejecting allele because of similar " +\
+                            "span: " + a2)
+                        rejalleles.append(a2)
+                        rdict[a2] = ":".join(["SimSpan", apos,\
+                            str(avg_dev(a1vals)), str(avg_dev(a2vals))])
+                    else: 
+                        print("Rejecting allele because of similar " +\
+                            "span: " + a1)
+                        rejalleles.append(a1)
+                        rdict[a1] = ":".join(["SimSpan", apos,\
+                            str(avg_dev(a1vals)), str(avg_dev(a2vals))])
+            #print("rejalleles:", rejalleles)
+            for allele in subaccept[abase]:
+                if not allele in rejalleles:
+                    if not abase in newaccept: newaccept[abase] = []
+                    newaccept[abase].append(allele)
+        else: newaccept[abase] = subaccept[abase]
+    return newaccept, rdict
+
+def slurp_wc2counts(myallele, ofile, btresult, winlen, maxloss):
+    thevals = {}
+    offset = 0
+    keepme = True
+    retloss = 0
+    with open(ofile) as n:
+        for line in n:
+            pos, val = line.rstrip().split('\t')
+            thevals[pos] = int(val)
+            if offset == 0: offset = int(pos)
+    # do second windowed coverage evaluation from text file
+    tpos = offset + winlen
+    while True:
+        closed = True
+        for pos in range(offset, tpos+1):
+            # compare the coverage between the first
+            # and second evaluation
+            if str(pos) in btresult[myallele] and str(pos) in thevals:
+                closed = False
+                if float(thevals[str(pos)]) > 0.0:
+                    covdiff = float(btresult[myallele][str(pos)]) -\
+                        float(thevals[str(pos)])
+                else: covdiff = 0.0
+                if float(btresult[myallele][str(pos)]) > 0.0:
+                    covloss = covdiff / float(btresult[myallele][str(pos)])
+                else: covloss = 0.0
+                if covloss > maxloss:
+                    print("Rejecting allele because of coverage loss " +\
+                        "between filters: " + myallele + " " + str(covloss))
+                    keepme = False
+                    retloss = covloss
+        offset += winlen
+        tpos += winlen
+        if closed == True: break
+    return thevals, keepme, retloss
+
+def win_cov_eval2(oldaccept, btdres, fname, minall, spos, epos, sdiv, wlen,\
+    BTnm, BTmp, STq, mloss, mmo, rls, bto, rdict, slq, trin):
+    newaccept = {}
+    btd2res = {}
+    alltbam = {}
+    # for each locus...
+    for abase in oldaccept.keys():
+        # if we have the minimum number of alleles remaining for the
+        # locus to trigger another windowed coverage evaluation...
+        if len(oldaccept[abase]) >= minall:
+            rejalleles = []
+            newaccept[abase] = []
+            # for each remaining locus allele...
+            for allele in oldaccept[abase]:
+                bfile = mmo + "/" + fname + "_v_" + allele +\
+                    ".sorted.bam"
+                bofile = bto + "/" + fname + "_v_" + allele +\
+                    ".wincov2.tab"
+                if os.path.exists(bofile):
+                    print("Slurping second windowed coverage because " +\
+                        "file already exists: " + bofile)
+                    btvals, keepthis, closs = slurp_wc2counts(allele, bofile,\
+                        btdres, wlen, mloss)
+                    btd2res[allele] = btvals
+                    if keepthis == False and not allele in rejalleles:
+                        rdict[allele] = ":".join(["CovLoss",\
+                            str('{0:.6f}'.format(closs))])
+                else:
+                    tbamdata, treadlengths = align_sample(fname, trin,\
+                        [allele], mmo, bto, slq, "wincov2")
+                    alltbam.update(tbamdata)
+                    print("Doing second windowed coverage evaluation " +\
+                        "for: " + fname + " " + allele)
+                    pybam = pysam.AlignmentFile(bfile, "rb")
+                    rlmin = str(int(float(rls[allele]) / sdiv))
+                    #print("Minimum read length:", rlmin)
+                    pos = spos[abase]
+                    btd2res[allele] = {}
+                    rejected = False
+                    # do second windowed coverage evaluation from BAM file
+                    while pos < epos[abase]:
+                        tpos = pos + wlen
+                        # run BAMTools for this window
+                        res = run_bamtools(rlmin, allele, pos, tpos, bfile,\
+                            BTnm, BTmp, STq)
+                        if res == None: continue
+                        lines = res.split('\n')
+                        lkeep = []
+                        for line in lines[:-1]:
+                            fields = line.split('\t')
+                            # if the result isn't in the window, ignore it
+                            if int(fields[1]) >= tpos or\
+                                int(fields[1]) < pos: continue
+                            else:
+                                if fields[1] in btdres[allele]:
+                                    # compare the coverage between the first
+                                    # and second evaluation
+                                    if float(fields[2]) > 0.0:
+                                        covdiff =\
+                                            float(btdres[allele][fields[1]]) -\
+                                            float(fields[2])
+                                    else: covdiff = 0.0
+                                    if float(btdres[allele][fields[1]]) > 0.0:
+                                        covloss = covdiff /\
+                                            float(btdres[allele][fields[1]])
+                                    else: covloss = 0.0
+                                    # reject the allele if it exceeds the
+                                    # maximum threshold
+                                    if covloss > mloss and rejected == False:
+                                        rejected = True
+                                        rejalleles.append(allele)
+                                        print("Rejecting allele because of " +\
+                                            "coverage loss between filters: " +\
+                                            allele)
+                                        rdict[allele] = \
+                                            ":".join(["CovLoss",\
+                                            str('{0:.6f}'.format(covloss))])
+                                    btd2res[allele][fields[1]] = fields[2]
+                        # advance the window
+                        pos += wlen
+                    # write second windowed coverage results
+                    with open(bofile, 'w') as o:
+                        for mypos in natsorted(btd2res[allele].keys()):
+                            o.write("\t".join([mypos,\
+                                btd2res[allele][mypos]]) + "\n")
+            for allele in oldaccept[abase]:
+                if not allele in rejalleles:
+                    newaccept[abase].append(allele)
+        else: newaccept[abase] = oldaccept[abase]
+    return newaccept, btd2res, rdict, alltbam
+
+def multi_align(accept, fname, mout, records):
+    dp = {}
+    gps = {}
+    # for each locus...
+    for abase in accept.keys():
+        mafftin = mout + "/" + fname + "_" + abase + "-in.fa"
+        maffto = mout + "/" + fname + "_" + abase + "-out.fa"
+        diffout = mout + "/" + fname + "_" + abase + "-diff.tab"
+        dp[abase] = {}
+        # if we have at least one allele remaining for the locus...
+        if len(accept[abase]) > 0:
+            inrecs = []
+            for allele in accept[abase]:
+                inrecs.append(records[allele])
+            # write the input multi-alignment (or single allele)
+            SeqIO.write(inrecs, mafftin, "fasta")
+            # if there's only one allele remaining, no need for
+            # a multi-alignment; just copy it
+            if len(accept[abase]) == 1:
+                copyfile(mafftin, maffto)
+            else:
+                # run MAFFT
+                print("Multi-aligning " + abase + " for " + fname +\
+                    "...")
+                args1 = [mafft, '--quiet', '--localpair',\
+                    '--maxiterate', '1000', mafftin]
+                o = open(maffto, 'w')
+                call(args1, stdout=o, shell=False)
+                o.close()
+            # parse the multi-alignment (or single allele)
+            alignment = AlignIO.read(maffto, "fasta")
+            alen = len(alignment[0].seq)
+            # get the gaps in the multi-alignment
+            for rec in alignment:
+                gps[rec.id] = []
+                for bpos, base in enumerate(list(str(rec.seq))):
+                    if base == "-": gps[rec.id].append(bpos)
+            # get the differential positions in the multi-alignment
+            for pos in range(alen):
+                column = str(alignment[:, pos])
+                if len(set(column)) == 1: continue
+                dp[abase][pos] = {}
+                for arec, base in zip(alignment, list(column)):
+                    dp[abase][pos][arec.id] = base
+        # write the differential positions in the locus multi-alignment
+        with open(diffout, 'w') as o:
+            for pos in dp[abase].keys():
+                for allele in dp[abase][pos].keys():
+                    o.write("\t".join([str(pos + 1), allele,\
+                        dp[abase][pos][allele]]) + "\n")
+    return dp, gps
+
+def write_freqs(accept, dps, btdres, fname, odir, rdict):
+    resfile = odir + "/results.tab"
+    r = open(resfile, 'a')
+    # for each locus...
+    for abase in dps.keys():
+        covs = {}
+        # if there is more than one allele present...
+        if not len(accept[abase]) == 1:
+            # for each differential position in the locus...
+            for pos in dps[abase].keys():
+                # for each remaining locus allele...
+                for allele in accept[abase]:
+                    if not allele in covs: covs[allele] = []
+                    # add BAMTools coverage data to covs dict
+                    for pos in natsorted(btdres[allele].keys()):
+                        covs[allele].append(int(btdres[allele][str(pos)]))
+            totalcov = 0
+            # take the coverages for differential positions, and
+            # get the minimum coverage for each allele
+            mcovs = {}
+            #print covs
+            for allele in covs.keys():
+                mcov = min(covs[allele])
+                if mcov == 0: mcov = 1
+                mcovs[allele] = mcov
+                totalcov += mcov
+            # derive allele frequencies based on the minimum
+            # coverage data, and write to output file
+            for allele in covs.keys():
+                if float(totalcov) > 0.0:
+                    myfreq = (float(mcovs[allele]) / float(totalcov)) * 100.0
+                else: myfreq = 0.0
+                if myfreq > 0.000099999:
+                    r.write("\t".join([fname, allele,\
+                        str('{0:.4f}'.format(myfreq))]) + "\n")
+                else:
+                    rdict[allele] = "VeryLowFreq:" +\
+                        str('{0:.8f}'.format(myfreq))
+        elif len(accept[abase]) == 1:
+            # if there is a single remaining allele, just write it
+            # as 100%
+            r.write("\t".join([fname, accept[abase][0],\
+                str('{0:.4f}'.format(100.0))]) + "\n")
+    r.close()
+    return rdict
+
+def get_uncalled_bases(final, miniout, novout, fname, minfreq):
+    # compare alignment base coverage data from called alleles, and
+    # note base alleles that appear to be uncalled
+    print("Doing novel allele check for: " + fname)
+    # for each locus...
+    for abase in final.keys():
+        goodbases = {} # called already
+        badbases = {} # passes minfreq but not called already
+        # for each remaining locus allele...
+        for allele in final[abase]:
+            countfile = miniout + "/" + fname + "_v_" + allele + ".ccounts.tab"
+            # read the Minimap2 counts file for this allele
+            with open(countfile) as n:
+                for line in n:
+                    idx, seq, cov, Acov, Ccov, Gcov, Tcov =\
+                        line.rstrip().split('\t')
+                    if not idx in goodbases: goodbases[idx] = []
+                    if not idx in badbases: badbases[idx] = []
+                    # since the reference base can't be bad in this case...
+                    if seq in badbases[idx]: badbases[idx].remove(seq)
+                    # if this base is potentially bad...
+                    if (float(Acov) / float(cov)) >= minfreq and not seq ==\
+                        "A":
+                        # if the base hasn't been noted as good yet...
+                        if not "A" in goodbases[idx]:
+                            # label it bad for now
+                            if not "A" in badbases[idx]:
+                                badbases[idx].append("A")
+                        # wait, it's already good
+                        else:
+                            # let's make sure it's not labeled as bad
+                            if "A" in badbases[idx]: badbases[idx].remove("A")
+                    if (float(Ccov) / float(cov)) >= minfreq and not seq ==\
+                        "C":
+                        # if the base hasn't been noted as good yet...
+                        if not "C" in goodbases[idx]:
+                            # label it bad for now
+                            if not "C" in badbases[idx]:
+                                badbases[idx].append("C")
+                        # wait, it's already good
+                        else:
+                            # let's make sure it's not labeled as bad
+                            if "C" in badbases[idx]: badbases[idx].remove("C")
+                    if (float(Gcov) / float(cov)) >= minfreq and not seq ==\
+                        "G":
+                        # if the base hasn't been noted as good yet...
+                        if not "G" in goodbases[idx]:
+                            # label it bad for now
+                            if not "G" in badbases[idx]:
+                                badbases[idx].append("G")
+                        # wait, it's already good
+                        else:
+                            # let's make sure it's not labeled as bad
+                            if "G" in badbases[idx]: badbases[idx].remove("G")
+                    if (float(Tcov) / float(cov)) >= minfreq and not seq ==\
+                        "T":
+                        # if the base hasn't been noted as good yet...
+                        if not "T" in goodbases[idx]:
+                            # label it bad for now
+                            if not "T" in badbases[idx]:
+                                badbases[idx].append("T")
+                        # wait, it's already good
+                        else:
+                            # let's make sure it's not labeled as bad
+                            if "T" in badbases[idx]: badbases[idx].remove("T")
+                    # check if this is a good base
+                    if not seq in badbases[idx]:
+                        if not seq in goodbases[idx]:
+                            goodbases[idx].append(seq)
+        # write the 'bad' (potentially novel) bases...
+        novfile = novout + "/" + fname + "_v_" + abase + ".bases.tab"
+        o = open(novfile, 'w')
+        for idx in natsorted(badbases.keys()):
+            for base in badbases[idx]:
+                o.write("\t".join([idx, base]) + "\n")
+
+def delete_bams(resbamdata, fname, mmout):
+    filelist = []
+    for allele in resbamdata.keys():
+        thefile = mmout + "/" + fname + "_v_" + allele + ".sorted.bam"
+        filelist.append(thefile)
+        filelist.append(thefile + ".bai")
+    for thisfile in filelist:
+        if os.path.exists(thisfile): os.remove(thisfile)
+
+def process_kma_data(outdir, kmaout, kmadb, mmout, mafftout, tin, bout, nout,\
+    dout, slurpq, fthresh, wcthresh, maxad, maxloss, minalleles, minstartcov,\
+    reffract, rldiv, offset, winlen, spandiff, spanlen, srldiv, btnm, btmp,\
+    stq, ucmf):
+    allfa = kmadb + "/all-templates.fa"
+    kmaresults = glob.glob(kmaout + "/*.res")
+    rejectdict = {}
+    alldone = []
+    # for each KMA results file...
+    for kmares in kmaresults:
+        bname, ext = os.path.splitext(os.path.basename(kmares))
+        rejectdict = {}
+        dfile = dout + "/" + bname
+        if os.path.exists(dfile):
+            print("Skipping results for " + bname + " because " + dfile +\
+                "exists.")
+            continue
+        else:
+            print("Refining KMA results for: " + bname)
+        aalleles = make_refs(kmares, bname, mmout, allfa)
+        resbamdata, readlengths = align_sample(bname, tin, aalleles, mmout,\
+            bout, slurpq, "counts")
+        accepted = {}
+        # read the KMA results file
+        with open(kmares) as n:
+            for line in n:
+                if line.startswith('#'): continue
+                line = line.rstrip()
+                allele = line.split('\t')[0].rstrip()
+                abase = allele.split('_')[0]
+                if not abase in accepted: accepted[abase] = []
+                # evaluate the allele KMA called
+                eres = eval_covs(resbamdata[allele], fthresh)
+                if len(eres) < 1:
+                    accepted[abase].append(allele)
+                else:
+                    print("Rejecting allele " + allele + " for " + bname +\
+                        " because the following positions do not meet the " +\
+                        "reference base coverage threshold:")
+                    for pos, base, freq in eres:
+                        print(str(pos) + ":" + base + ":" +\
+                            str('{0:.6f}'.format(freq)))
+                        rejectdict[allele] = ":".join(["RefBaseCov",\
+                            str(pos), base, str('{0:.6f}'.format(freq))])
+        print("Passed position coverage threshold filter:")
+        print_dict_of_lists(accepted)
+        subaccepted, btres, spo, epo, recs, rejectdict, rbd = \
+            win_cov_eval(accepted, allfa, offset, bname, mmout, bout,\
+            reffract, rldiv, winlen, btnm, btmp, stq, minstartcov, maxad,\
+            readlengths, rejectdict, slurpq, tin, wcthresh)
+        if rbd: resbamdata.update(rbd)
+        print("Passed initial coverage and average deviation filters:")
+        print_dict_of_lists(subaccepted)
+        subsub, rejectdict = sim_span_eval(subaccepted, btres, spo, epo,\
+            spandiff, spanlen, bname, rejectdict)
+        print("Passed similar span filter:")
+        print_dict_of_lists(subsub)
+        subsubsub, bt2res, rejectdict, rbd = win_cov_eval2(subsub, btres,\
+            bname, minalleles, spo, epo, srldiv, winlen, btnm, btmp, stq,\
+            maxloss, mmout, readlengths, bout, rejectdict, slurpq, tin)
+        if rbd: resbamdata.update(rbd)
+        print("Passed coverage loss filter:")
+        print_dict_of_lists(subsubsub)
+        print("Multi-aligning loci...")
+        diffpos, gaps = multi_align(subsubsub, bname, mafftout, recs)
+        print("Writing allele frequencies...")
+        rejectdict = write_freqs(subsubsub, diffpos, btres, bname, outdir,\
+            rejectdict)
+        print("Scanning for novel alleles...")
+        get_uncalled_bases(subsubsub, mmout, nout, bname, ucmf)
+        print("Writing rejected alleles...")
+        rejfile = outdir + "/rejects.tab"
+        with open(rejfile, 'a') as j:
+            for allele in rejectdict.keys():
+                j.write("\t".join([bname, allele,\
+                    rejectdict[allele]]) + "\n")
+        with open(dfile, 'w') as o: o.write("")
+        print("Removing BAM files...")
+        #delete_bams(resbamdata, bname, mmout)
+
+def main():
+    args = do_args()
+    halfcores = args.threads / 2
+    hcoresp = halfcores + 1
+    args.indir = os.path.abspath(args.indir)
+    args.dbdir = os.path.abspath(args.dbdir)
+    args.outdir = os.path.abspath(args.outdir)
+    trimin, KMAdb, KMAout, MMout, MAFFTout, Bout, Nout, Dout =\
+        make_dirs(args.outdir)
+    trim_input(args.indir, trimin, args.tgqual)
+    make_ref_db(args.dbdir, KMAdb, args.klen)
+    kma_seqs(trimin, KMAdb, KMAout, args.klen, args.minphred, args.identity,\
+        args.minascore, args.reward, args.penalty, args.openalty,\
+        args.epenalty)
+    process_kma_data(args.outdir, KMAout, KMAdb, MMout, MAFFTout,\
+        trimin, Bout, Nout, Dout, args.slurpqual, args.freqthresh,\
+        args.wcovthresh, args.maxavgdev, args.maxloss, args.minalleles,\
+        args.minstartcov, args.reffract, args.rldiv, args.offset,\
+        args.winlen, args.spandiff, args.spanlen, args.srldiv, args.btnm,\
+        args.btmp, args.stq, args.ucmfreq)
+    print("Done.")
+    return 0
+
+if __name__ == "__main__":
+   sys.exit(main())
+
