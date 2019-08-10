@@ -15,13 +15,43 @@ We ran PLAP using the following software, though other versions may work equally
 
 * Red Hat Linux 7.5 or Ubuntu 18.04
 * Python 2.7.5
-* KMA 1.14 [https://bitbucket.org/genomicepidemiology/kma](https://bitbucket.org/genomicepidemiology/kma)
+* KMA 1.1.7 [https://bitbucket.org/genomicepidemiology/kma](https://bitbucket.org/genomicepidemiology/kma)
+
+		git clone https://bitbucket.org/genomicepidemiology/kma.git
+		cd kma/
+		# because `kma index...` still does not work in newer versions...
+		git checkout 1.1.7
+		make -j$(nproc)
+		sudo cp kma* /usr/local/bin/
+		
 * Minimap2 2.14 [https://github.com/lh3/minimap2](https://github.com/lh3/minimap2)
+
+		git clone https://github.com/lh3/minimap2
+		cd minimap2 && make -j$(nproc)
+		sudo mv minimap2 /usr/local/bin/
+		sudo chmod 755 /usr/local/bin/minimap2
+
 * SAMTools 1.8 [http://www.htslib.org/](http://www.htslib.org/)
+
+		sudo apt-get install samtools
+
 * BioPython 1.72 [https://biopython.org](https://biopython.org)
-* Trim Galore 0.4.5 [https://github.com/FelixKrueger/TrimGalore](https://github.com/FelixKrueger/TrimGalore)
+
+		sudo pip install biopython
+
+* Trim Galore 0.6.1 [https://github.com/FelixKrueger/TrimGalore](https://github.com/FelixKrueger/TrimGalore)
+
+		wget https://github.com/FelixKrueger/TrimGalore/archive/0.6.1.tar.gz
+		tar xzvf 0.6.1.tar.gz
+		sudo cp TrimGalore-0.6.1/trim_galore /usr/local/bin/
+
 * Cutadapt 1.18 [https://github.com/marcelm/cutadapt/](https://github.com/marcelm/cutadapt/)
+
+		sudo pip install cutadapt
+
 * PySAM 0.15.1 [https://pysam.readthedocs.io](https://pysam.readthedocs.io)
+
+		sudo pip install pysam
 
 Please be sure all of the above are installed before attempting to run PLAP, and additionally check that executable files for the applications are available through the current user's path.
 
