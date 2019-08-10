@@ -54,7 +54,6 @@ PLAP is then ready to run. The command may look as follows:
 For a description of all parameters avaliable for modification:
 
 	./PLAP --help
-To make sure PLAP has loaded properly, you may run it on the test samples provided.
 
 While PLAP runs, it will update you on candidate alleles for eachsample, starting with the coverage evaluation filter (see Detailed Overview). If an allele does not pass a filter, this information will be reported in real time. After PLAP completes, the output directory will contain a results.tab file, which will list the following for all samples and alleles:
 
