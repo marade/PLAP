@@ -53,6 +53,10 @@ We ran PLAP using the following software, though other versions may work equally
 
 		sudo pip install pysam
 
+If you have root access on an Ubuntu machine you can use the ubuntu-prereqs.sh script to install the prequisites:
+
+		bash ubuntu-prereqs.sh
+
 Please be sure all of the above are installed before attempting to run PLAP, and additionally check that executable files for the applications are available through the current user's path.
 
 PLAP requires as input a directory containing untrimmed paired end Fastq files, and another directory containing the reference alleles in Fasta format. Note: the Fastq files should be named with no underscores except the terminal "_1" or "_2", e.g. MyNameHere_1.fastq.gz and MyNameHere_2.fastq.gz.
