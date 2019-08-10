@@ -34,7 +34,7 @@ Once the dependencies are installed and working, a typical install and run of PL
 	git clone https://github.com/marade/PLAP.git
 	python PLAP/PLAP input-dir ref-dir output-dir
 
-A database of alleles for your gene(s), provided in Fasta files located in the "ref-dir" in the command above, is also needed. We have provided our database of fumC and fimH E. coli alleles here.
+A database of alleles for your gene(s), provided in Fasta files located in the "ref-dir" in the command above, is also needed. We have provided our database of fumC and fimH E. coli alleles here. To use these, move them to your own reference directory.
 
 Be warned that PLAP is under active development and testing, and therefore it may have serious bugs or otherwise be unsuitable for production work.
 
@@ -54,6 +54,7 @@ PLAP is then ready to run. The command may look as follows:
 For a description of all parameters avaliable for modification:
 
 	./PLAP --help
+To make sure PLAP has loaded properly, you may run it on the test samples provided.
 
 While PLAP runs, it will update you on candidate alleles for eachsample, starting with the coverage evaluation filter (see Detailed Overview). If an allele does not pass a filter, this information will be reported in real time. After PLAP completes, the output directory will contain a results.tab file, which will list the following for all samples and alleles:
 
@@ -66,6 +67,8 @@ PLAP will also issue a warning for samples with overtagmentation i.e. samples wh
 The rejects.tab file will contain all alleles rejected for your samples and the filter at which they were rejected.
 
 The nov_out directory within the output directory will contain tab-delimited files for each sample-gene combination. Check these files for uncalled bases indicating the presence of novel allele(s) or allele(s) that are present but did not survive filtering. Note: if you have uncalled bases for your sample, your prevalences as recorded in the results.tab file may not be accurate and will need to be recalculated. See the Detailed Overview for further information.
+
+When a PLAP run is completed, the 'done' directory will have a file for each sample. If you wish to rerun analysis on one or more samples, delete this file before running PLAP again.
 
 If you find that PLAP is filtering out all candidate alleles, parameter adjustment is likely necessary. We recommend looking at the rejects file and seeing where the majority of alleles fall out. Parameters that are most likely to need lowering include:
 
@@ -202,9 +205,15 @@ If a sample is overtagmented, predicted prevalences for all alleles should be ve
 	Allele 2	20%
 	Allele 3	 5%
 
+## Rerunning PLAP
+
+If you wish to rerun PLAP from a particular point or for particular sample(s) you may do so. PLAP will check for existing trimmed reads, KMA results, BAMtools results, Minimap2 results, and moving window coverage counts, so if you wish to for example redo analysis from the Minimap2 step, you should delete or move files/directories from Minimap2 onwards. PLAP will use the existing trimmed-read/KMA/etc files for the analysis. However, if PLAP has completed and you want to rerun it, you will need to delete the sample(s) files from the 'done' directory first.
+
 ### Citations
 
 PLAP is currently unpublished, but a manuscript has been submitted, so for now please cite this way:
 
 	Escherichia coli clonobiome: assessing the strains diversity in feces and urine by deep amplicon sequencing.
 	Shevchenko, Radey, Tchesnokova, Sokurenko 2019
+
+Logo is by Hatchful (Spotify)
