@@ -21,4 +21,6 @@ tar xzvf 0.6.1.tar.gz
 sudo cp TrimGalore-0.6.1/trim_galore /usr/local/bin/
 rm -rf TrimGalore-0.6.1/
 
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -o Dpkg::Options::='--force-confold' -f -u -y samtools biopython cutadapt pysam
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -o Dpkg::Options::='--force-confold' -f -u -y samtools
+
+sudo -H pip install biopython cutadapt pysam
