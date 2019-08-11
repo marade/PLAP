@@ -351,6 +351,7 @@ def get_read_length(bamfile, rep):
     mylong = 0.0
     for anum, aread in enumerate(pybam.fetch(rep)):
         rl = aread.infer_read_length()
+        if r1 == None: continue
         if rl > rlen: rlen = rl
         if rl < 100:
             myshort += 1
@@ -409,10 +410,10 @@ def align_sample(fname, trin, alleles, mm2out, bto, squal, step):
             print("Aligning " + fname + " to " + allele + "...")
             args1 = []
             if os.path.exists(fq):
-                args1 = [mm2, '-x', 'sr', '-a', '-t', str(hcoresp),\
+                args1 = [mm2, '-x', 'sr', '-c', '-a', '-t', str(hcoresp),\
                     refpath, fq]
             else:
-                args1 = [mm2, '-x', 'sr', '-a', '-t', str(hcoresp),\
+                args1 = [mm2, '-x', 'sr', '-c', '-a', '-t', str(hcoresp),\
                     refpath, fq1, fq2]
             args2 = [samtools, "sort", "-@", str(halfcores), "-O", "bam",\
                 "-o", sbam, "-"]
