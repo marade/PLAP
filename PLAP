@@ -75,7 +75,7 @@ def do_args():
         "characterizing population allele presence in genomic loci " +\
         "experiments like MLST"
     parser = argparse.ArgumentParser(prog=os.path.basename(__file__),\
-        version=version, description=desc)
+        description=desc)
     parser.add_argument("indir", help="specifies the directory with the " +\
         "input Fastq files that have names like X_1.fastq and X_2.fastq " +\
         "or the gzipped equivalents")
@@ -197,10 +197,10 @@ def make_dirs(outdir):
 def print_dict_of_lists(thedict):
     for key in thedict.keys():
         print("  " + key + ":")
-        print "   ",
+        print("   ", end=" ")
         for val in thedict[key]:
-            print val,
-        print
+            print(val, end=" ")
+        print()
 
 def trim_input(indir, tin, tgqual):
     firstfq = glob.glob(indir + "/*_1.fastq*")
@@ -399,7 +399,7 @@ def align_sample(fname, trin, alleles, mm2out, bto, squal, step):
                 covcounts + " " + bofile + " " + bo2file)
             thisbdata = slurp_ccounts(covcounts)
             if os.path.exists(sbam):
-                print sbam
+                print(sbam)
                 allrldata[allele] = get_read_length(sbam, allele)
             else:
                 allrldata[allele] = 0
