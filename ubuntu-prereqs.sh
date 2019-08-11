@@ -1,7 +1,7 @@
 #!/bin/sh
 
 sudo apt-get update
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -o Dpkg::Options::='--force-confold' -f -u -y build-essential python3 python3-pip samtools liblzma-dev libbz2-dev zlib1g-dev
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -o Dpkg::Options::='--force-confold' -f -u -y build-essential cmake python3 python3-pip samtools liblzma-dev libbz2-dev zlib1g-dev
 
 sudo -H pip3 install biopython cutadapt pysam natsort
 
@@ -25,3 +25,13 @@ wget https://github.com/FelixKrueger/TrimGalore/archive/0.6.1.tar.gz
 tar xzvf 0.6.1.tar.gz
 sudo cp TrimGalore-0.6.1/trim_galore /usr/local/bin/
 rm -rf TrimGalore-0.6.1/
+
+git clone git://github.com/pezmaster31/bamtools.git
+cd bamtools/
+mkdir build
+cd build/
+cmake ..
+make
+sudo make install
+cd
+rm -rf bamtools/
