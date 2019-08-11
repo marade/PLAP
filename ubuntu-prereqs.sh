@@ -1,5 +1,10 @@
 #!/bin/sh
 
+sudo apt-get update
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -o Dpkg::Options::='--force-confold' -f -u -y build-essential python3 python3-pip samtools liblzma-dev libbz2-dev zlib1g-dev
+
+sudo -H pip3 install biopython cutadapt pysam natsort
+
 git clone https://bitbucket.org/genomicepidemiology/kma.git
 cd kma/
 # because `kma index...` still does not work in newer versions...
@@ -20,8 +25,3 @@ wget https://github.com/FelixKrueger/TrimGalore/archive/0.6.1.tar.gz
 tar xzvf 0.6.1.tar.gz
 sudo cp TrimGalore-0.6.1/trim_galore /usr/local/bin/
 rm -rf TrimGalore-0.6.1/
-
-sudo apt-get update
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -o Dpkg::Options::='--force-confold' -f -u -y build-essential python3 python3-pip samtools liblzma-dev libbz2-dev zlib1g-dev
-
-sudo -H pip3 install biopython cutadapt pysam natsort
