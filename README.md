@@ -66,7 +66,7 @@ PLAP requires as input a directory containing untrimmed paired end Fastq files, 
 Once the dependencies are installed and working, a typical install and run of PLAP might go as follows:
 
 	git clone https://github.com/marade/PLAP.git
-	python PLAP/PLAP input-dir ref-dir output-dir
+	python PLAP/PLAP example-reads example-ref my-output-dir
 
 A database of alleles for your gene(s), provided in Fasta files located in the "ref-dir" in the command above, is also needed. We have provided our database of fumC and fimH E. coli alleles here. To use these, move them to your own reference directory.
 
