@@ -35,9 +35,23 @@ We ran PLAP using the following software, though other versions may work equally
 
 		sudo apt-get install samtools
 
+* BAMTools 2.5.1 [https://github.com/pezmaster31/bamtools](https://github.com/pezmaster31/bamtools)
+
+		git clone git://github.com/pezmaster31/bamtools.git
+		cd bamtools/
+		mkdir build
+		cd build/
+		cmake ..
+		make
+		sudo make install
+
 * BioPython 1.72 [https://biopython.org](https://biopython.org)
 
 		sudo pip install biopython
+
+* Python natsort 6.0.0 [https://pypi.org/project/natsort](https://pypi.org/project/natsort)
+
+		sudo pip install natsort
 
 * Trim Galore 0.6.1 [https://github.com/FelixKrueger/TrimGalore](https://github.com/FelixKrueger/TrimGalore)
 
