@@ -77,7 +77,7 @@ PLAP requires as input a directory containing untrimmed paired end Fastq files, 
 
 ## Installation
 
-Once the dependencies are installed and working, a typical install and run of PLAP might go as follows:
+A typical install (including prerequisites) and run of PLAP on Ubuntu might go as follows:
 
 	git clone https://github.com/marade/PLAP.git
 	bash PLAP/ubuntu-prereqs.sh
