@@ -88,6 +88,7 @@ A database of alleles for your gene(s), provided in Fasta files located in the "
 Be warned that PLAP is under active development and testing, and therefore it may have serious bugs or otherwise be unsuitable for production work.
 
 ## Quick Start
+Note: please see 'Guidelines' for our recommendations on experimental design.
 
 After installation, create folders for the fastq data and the allele database. Make sure that your fastq file names are in proper format (see above). The allele database folder should contain a .fa or .fasta file(s) formatted in the following way:
 
@@ -133,15 +134,23 @@ If you find that PLAP is calling many alleles per gene (>5), reverse  adjustment
 
 ## Detailed Overview
 
+### Guidelines
 For the best results, we highly recommend the following:
 
 * A target sequencing read length of at least approximately 250bp
-* A set of control samples consisting of mixes of at least 2 sequence types at various known ratios
-* A set of control natural samples which have been extensively typed using conventional MLST
+* A set of control samples consisting of mixes of at least 2 verified sequence types at various known ratios
+	ex: E. coli ST131:ST101 at ratios of 1:1, 1:10, 1:100, and 1:1000
+* A set of control natural samples which have been extensively typed using conventional MLST or other single-colony typing
+	preferably with varying ratios
+	ex: a set of 3 fecal samples which are known to be approximately 
+		95% ST131 and 5% ST101
+		70% ST131 and 30% ST95
+		50% ST88  and 50% ST399
 
-Control mixes do not need to be involved in every run, but one per experiment is advised.
+Artificial control mixes do not need to be involved in every run, but one per experiment is advised.
+Control natural samples may not be necessary in every run, but is ideal as a check to make sure your run has no issues.
 
-Note: PLAP was developed using target read lengths of 250bp. While it may work for a >100bp read target with modification, we have not tested its accuracy with this kind of data. Additionally, our defaults are geared towards fumC/fimH typing of Escherichia coli. If you have a another MLST-like method, or a different organism, significant calibration may be necessary.
+Note: PLAP was developed using target read lengths of 250+bp. While it may work for a 100-200bp read target with modification, we have not tested its accuracy with this kind of data. Additionally, our defaults are geared towards fumC/fimH typing of Escherichia coli. If you have a another MLST-like method, or a different organism, significant calibration may be necessary.
 
 ### Trim Galore
 
