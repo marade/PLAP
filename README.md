@@ -268,9 +268,10 @@ If you wish to rerun PLAP from a particular point or for particular sample(s) yo
 
 ### Citations
 
-PLAP is currently unpublished, but a manuscript has been submitted, so for now please cite this way:
+PLAP can be cited this way:
 
-	Escherichia coli clonobiome: assessing the strains diversity in feces and urine by deep amplicon sequencing.
-	Shevchenko, Radey, Tchesnokova, Sokurenko 2019
+	Shevchenko SG, Radey M, Tchesnokova V, Kisiela D, Sokurenko EV. Escherichia coli Clonobiome: Assessing the Strain
+	Diversity in Feces and Urine by Deep Amplicon Sequencing. Appl Environ Microbiol. 2019;85(23):e01866-19. Published 2019
+	Nov 14. doi:10.1128/AEM.01866-19 
 
 Logo is by Hatchful (Spotify)
